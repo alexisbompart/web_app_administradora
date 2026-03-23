@@ -5,8 +5,62 @@ use App\Http\Controllers\Financiero\CobranzaController;
 use App\Http\Controllers\Financiero\ConcBancariaController;
 use App\Http\Controllers\Financiero\EnvioReciboController;
 use App\Http\Controllers\PagoIntegral\PagoIntegralController;
+use App\Http\Controllers\Financiero\DeudaImportController;
+use App\Http\Controllers\Financiero\DescuentoImportController;
+use App\Http\Controllers\Financiero\AbonoImportController;
+use App\Http\Controllers\Financiero\GastoImportController;
+use App\Http\Controllers\Financiero\MovPrefactImportController;
+use App\Http\Controllers\Financiero\MovFactAptoImportController;
+use App\Http\Controllers\Financiero\MovFactEdifImportController;
+use App\Http\Controllers\Financiero\PagoAptoImportController;
+use App\Http\Controllers\Financiero\PagoImportController;
 use App\Http\Controllers\CajaMatic\CajaMaticController;
 use Illuminate\Support\Facades\Route;
+
+// Importar Deudas
+Route::get('deudas/importar', [DeudaImportController::class, 'showForm'])->name('deudas.importar');
+Route::post('deudas/importar/preview', [DeudaImportController::class, 'preview'])->name('deudas.importar.preview');
+Route::post('deudas/importar/execute', [DeudaImportController::class, 'execute'])->name('deudas.importar.execute');
+
+// Importar Descuentos
+Route::get('descuentos/importar', [DescuentoImportController::class, 'showForm'])->name('descuentos.importar');
+Route::post('descuentos/importar/preview', [DescuentoImportController::class, 'preview'])->name('descuentos.importar.preview');
+Route::post('descuentos/importar/execute', [DescuentoImportController::class, 'execute'])->name('descuentos.importar.execute');
+
+// Importar Abonos
+Route::get('abonos/importar', [AbonoImportController::class, 'showForm'])->name('abonos.importar');
+Route::post('abonos/importar/preview', [AbonoImportController::class, 'preview'])->name('abonos.importar.preview');
+Route::post('abonos/importar/execute', [AbonoImportController::class, 'execute'])->name('abonos.importar.execute');
+
+// Importar Gastos
+Route::get('gastos/importar', [GastoImportController::class, 'showForm'])->name('gastos.importar');
+Route::post('gastos/importar/preview', [GastoImportController::class, 'preview'])->name('gastos.importar.preview');
+Route::post('gastos/importar/execute', [GastoImportController::class, 'execute'])->name('gastos.importar.execute');
+
+// Importar Pagos
+Route::get('pagos/importar', [PagoImportController::class, 'showForm'])->name('pagos.importar');
+Route::post('pagos/importar/preview', [PagoImportController::class, 'preview'])->name('pagos.importar.preview');
+Route::post('pagos/importar/execute', [PagoImportController::class, 'execute'])->name('pagos.importar.execute');
+
+// Importar Pagos Apto
+Route::get('pagoapto/importar', [PagoAptoImportController::class, 'showForm'])->name('pagoapto.importar');
+Route::post('pagoapto/importar/preview', [PagoAptoImportController::class, 'preview'])->name('pagoapto.importar.preview');
+Route::post('pagoapto/importar/execute', [PagoAptoImportController::class, 'execute'])->name('pagoapto.importar.execute');
+
+// Importar Mov. Facturacion Edificio
+Route::get('movfactedif/importar', [MovFactEdifImportController::class, 'showForm'])->name('movfactedif.importar');
+Route::post('movfactedif/importar/preview', [MovFactEdifImportController::class, 'preview'])->name('movfactedif.importar.preview');
+Route::post('movfactedif/importar/execute', [MovFactEdifImportController::class, 'execute'])->name('movfactedif.importar.execute');
+
+// Importar Mov. Facturacion Apto
+Route::get('movfactapto/importar', [MovFactAptoImportController::class, 'showForm'])->name('movfactapto.importar');
+Route::post('movfactapto/importar/preview', [MovFactAptoImportController::class, 'preview'])->name('movfactapto.importar.preview');
+Route::post('movfactapto/importar/execute', [MovFactAptoImportController::class, 'execute'])->name('movfactapto.importar.execute');
+
+// Importar Movimientos Pre-facturacion
+Route::get('movprefact/importar', [MovPrefactImportController::class, 'showForm'])->name('movprefact.importar');
+Route::post('movprefact/importar/preview', [MovPrefactImportController::class, 'preview'])->name('movprefact.importar.preview');
+Route::post('movprefact/importar/execute', [MovPrefactImportController::class, 'execute'])->name('movprefact.importar.execute');
 
 // Fondos
 Route::resource('fondos', FondoController::class);

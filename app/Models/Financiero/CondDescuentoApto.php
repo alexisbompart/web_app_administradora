@@ -5,29 +5,27 @@ namespace App\Models\Financiero;
 use App\Models\Condominio\Apartamento;
 use App\Models\Condominio\Compania;
 use App\Models\Condominio\Edificio;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class CondAbonoApto extends Model
+class CondDescuentoApto extends Model
 {
-    protected $table = 'cond_abonos_apto';
+    protected $table = 'cond_descuentos_apto';
 
     protected $fillable = [
-        'compania_id', 'edificio_id', 'apartamento_id',
-        'fecha', 'periodo', 'monto', 'monto_abono_num',
-        'tipo', 'tipo_abono', 'referencia', 'serial',
-        'fecha_cance', 'operacion', 'observaciones', 'registrado_por',
+        'compania_id', 'edificio_id', 'apartamento_id', 'periodo',
+        'descuento', 'descuento_num', 'monto_honorario', 'monto_honorario_num',
+        'motivo', 'observaciones',
         'cod_edif_legacy', 'compania_legacy', 'num_apto_legacy',
         'legacy_created_by', 'legacy_created_at',
         'legacy_updated_by', 'legacy_updated_at',
     ];
 
     protected $casts = [
-        'fecha' => 'date',
-        'fecha_cance' => 'date',
-        'monto' => 'decimal:2',
-        'monto_abono_num' => 'decimal:2',
+        'descuento' => 'decimal:2',
+        'descuento_num' => 'decimal:2',
+        'monto_honorario' => 'decimal:2',
+        'monto_honorario_num' => 'decimal:2',
         'legacy_created_at' => 'datetime',
         'legacy_updated_at' => 'datetime',
     ];
@@ -35,5 +33,4 @@ class CondAbonoApto extends Model
     public function compania(): BelongsTo { return $this->belongsTo(Compania::class); }
     public function edificio(): BelongsTo { return $this->belongsTo(Edificio::class); }
     public function apartamento(): BelongsTo { return $this->belongsTo(Apartamento::class); }
-    public function registradoPor(): BelongsTo { return $this->belongsTo(User::class, 'registrado_por'); }
 }

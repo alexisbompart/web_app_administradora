@@ -11,6 +11,20 @@
         </div>
     </x-slot>
 
+    @if(session('success'))
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2 mb-6">
+        <i class="fas fa-check-circle"></i>
+        {{ session('success') }}
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 mb-6">
+        <i class="fas fa-exclamation-circle"></i>
+        {{ session('error') }}
+    </div>
+    @endif
+
     <div class="card">
         <div class="card-header">
             <h3 class="text-sm font-heading font-semibold text-navy-800">

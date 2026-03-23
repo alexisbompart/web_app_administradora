@@ -236,6 +236,11 @@
             <i class="fas fa-user-tag w-5 text-center"></i>
             <span x-show="sidebarOpen" x-transition>Roles</span>
         </a>
+        <a href="{{ route('admin.importaciones.index') }}"
+           class="sidebar-link {{ request()->routeIs('admin.importaciones.*') ? 'active' : '' }}">
+            <i class="fas fa-file-import w-5 text-center"></i>
+            <span x-show="sidebarOpen" x-transition>Importaciones</span>
+        </a>
         <a href="{{ route('admin.welcome.index') }}"
            class="sidebar-link {{ request()->routeIs('admin.welcome.*') ? 'active' : '' }}">
             <i class="fas fa-globe w-5 text-center"></i>
@@ -391,6 +396,7 @@
         <div class="pt-4 pb-2"><p class="px-4 text-xs font-semibold text-slate_custom-400 uppercase tracking-wider">Administracion</p></div>
         <a href="{{ route('admin.usuarios.index') }}" class="sidebar-link {{ request()->routeIs('admin.usuarios.*') ? 'active' : '' }}"><i class="fas fa-user-shield w-5 text-center"></i><span>Usuarios</span></a>
         <a href="{{ route('admin.roles.index') }}" class="sidebar-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}"><i class="fas fa-user-tag w-5 text-center"></i><span>Roles</span></a>
+        <a href="{{ route('admin.importaciones.index') }}" class="sidebar-link {{ request()->routeIs('admin.importaciones.*') ? 'active' : '' }}"><i class="fas fa-file-import w-5 text-center"></i><span>Importaciones</span></a>
         <a href="{{ route('admin.welcome.index') }}" class="sidebar-link {{ request()->routeIs('admin.welcome.*') ? 'active' : '' }}"><i class="fas fa-globe w-5 text-center"></i><span>Pagina Web</span></a>
         @endcanany
         @endunless

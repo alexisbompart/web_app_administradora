@@ -107,7 +107,7 @@
                         </div>
                         <div class="bg-slate_custom-100 rounded-lg p-3">
                             <p class="text-xs text-slate_custom-400">Area</p>
-                            <p class="text-sm font-semibold text-navy-800">{{ number_format($apto->area, 2) }} m&sup2;</p>
+                            <p class="text-sm font-semibold text-navy-800">{{ number_format($apto->area_mts ?? 0, 2) }} m&sup2;</p>
                         </div>
                     </div>
 

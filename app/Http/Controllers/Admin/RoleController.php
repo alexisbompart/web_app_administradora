@@ -23,13 +23,9 @@ class RoleController extends Controller
 
     public function create()
     {
-        $permissions = Permission::all();
+        $permissions = Permission::orderBy('name')->get();
 
-        return response()->json([
-            'message'     => 'Formulario de creacion de rol',
-            'module'      => 'Admin',
-            'permissions' => $permissions,
-        ]);
+        return view('admin.roles-form', compact('permissions'));
     }
 
     public function store(Request $request)
@@ -46,32 +42,22 @@ class RoleController extends Controller
             $role->syncPermissions($validated['permissions']);
         }
 
-        return response()->json([
-            'message' => 'Rol creado exitosamente',
-            'module'  => 'Admin',
-            'data'    => $role->load('permissions'),
-        ], 201);
+        return redirect()->route('admin.roles.index')->with('success', 'Rol creado exitosamente.');
     }
 
     public function show(Role $role)
     {
-        return response()->json([
-            'message' => 'Detalle del rol',
-            'module'  => 'Admin',
-            'data'    => $role->load('permissions'),
-        ]);
+        $role->load(['permissions', 'users']);
+
+        return view('admin.roles-show', compact('role'));
     }
 
     public function edit(Role $role)
     {
-        $permissions = Permission::all();
+        $role->load('permissions');
+        $permissions = Permission::orderBy('name')->get();
 
-        return response()->json([
-            'message'     => 'Formulario de edicion de rol',
-            'module'      => 'Admin',
-            'data'        => $role->load('permissions'),
-            'permissions' => $permissions,
-        ]);
+        return view('admin.roles-form', compact('role', 'permissions'));
     }
 
     public function update(Request $request, Role $role)
@@ -86,54 +72,19 @@ class RoleController extends Controller
             $role->update(['name' => $validated['name']]);
         }
 
-        if (isset($validated['permissions'])) {
-            $role->syncPermissions($validated['permissions']);
-        }
+        $role->syncPermissions($validated['permissions'] ?? []);
 
-        return response()->json([
-            'message' => 'Rol actualizado exitosamente',
-            'module'  => 'Admin',
-            'data'    => $role->load('permissions'),
-        ]);
+        return redirect()->route('admin.roles.index')->with('success', 'Rol actualizado exitosamente.');
     }
 
     public function destroy(Role $role)
     {
+        if ($role->users()->count() > 0) {
+            return back()->with('error', 'No se puede eliminar el rol porque tiene usuarios asignados.');
+        }
+
         $role->delete();
 
-        return response()->json([
-            'message' => 'Rol eliminado exitosamente',
-            'module'  => 'Admin',
-        ]);
-    }
-
-    public function attachPermission(Request $request, Role $role)
-    {
-        $validated = $request->validate([
-            'permission' => 'required|exists:permissions,name',
-        ]);
-
-        $role->givePermissionTo($validated['permission']);
-
-        return response()->json([
-            'message' => 'Permiso asignado al rol exitosamente',
-            'module'  => 'Admin',
-            'data'    => $role->load('permissions'),
-        ]);
-    }
-
-    public function detachPermission(Request $request, Role $role)
-    {
-        $validated = $request->validate([
-            'permission' => 'required|exists:permissions,name',
-        ]);
-
-        $role->revokePermissionTo($validated['permission']);
-
-        return response()->json([
-            'message' => 'Permiso removido del rol exitosamente',
-            'module'  => 'Admin',
-            'data'    => $role->load('permissions'),
-        ]);
+        return redirect()->route('admin.roles.index')->with('success', 'Rol eliminado exitosamente.');
     }
 }

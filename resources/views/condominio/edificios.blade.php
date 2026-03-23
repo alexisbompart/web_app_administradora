@@ -5,9 +5,14 @@
                 <h2 class="text-2xl font-heading font-bold text-navy-800">Edificios</h2>
                 <p class="text-sm text-slate_custom-400 mt-1">Gestión de edificios del condominio</p>
             </div>
-            <a href="{{ route('condominio.edificios.create') }}" class="btn-primary">
-                <i class="fas fa-plus mr-2"></i>Crear nuevo
-            </a>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('condominio.edificios.importar') }}" class="btn-secondary">
+                    <i class="fas fa-file-import mr-2"></i>Importar
+                </a>
+                <a href="{{ route('condominio.edificios.create') }}" class="btn-primary">
+                    <i class="fas fa-plus mr-2"></i>Crear nuevo
+                </a>
+            </div>
         </div>
     </x-slot>
 
