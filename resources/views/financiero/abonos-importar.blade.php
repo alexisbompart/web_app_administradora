@@ -65,7 +65,7 @@
             @csrf
             <div class="flex items-center justify-end gap-3">
                 <a href="{{ route('financiero.abonos.importar') }}" class="btn-secondary"><i class="fas fa-times mr-2"></i>Cancelar</a>
-                <button type="submit" class="inline-flex items-center px-5 py-2.5 bg-red-700 text-white text-sm font-heading font-semibold rounded-lg hover:bg-red-800 transition" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin mr-2\'></i>Procesando...'; this.form.submit();"><i class="fas fa-sync-alt mr-2"></i>Reemplazar Abonos ({{ number_format($summary['validas']) }})</button>
+                <button type="submit" class="btn-primary" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin mr-2\'></i>Procesando...'; this.form.submit();"><i class="fas fa-sync-alt mr-2"></i>Reemplazar Abonos ({{ number_format($summary['validas']) }})</button>
             </div>
         </form>
         @endif

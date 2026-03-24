@@ -141,18 +141,30 @@ class PagoAptoImportController extends Controller
         if (empty($rows)) { @unlink($tp); return redirect()->route('financiero.pagoapto.importar')->with('error', 'Sin filas.'); }
 
         $results = ['imported' => 0, 'previous_count' => 0, 'errors' => []];
-        DB::beginTransaction();
+        $results['previous_count'] = CondPagoApto::count();
+
         try {
-            $results['previous_count'] = CondPagoApto::count();
             DB::table('cond_pago_aptos')->truncate();
-            $now = now()->toDateTimeString();
-            foreach (array_chunk($rows, 500) as $chunk) {
-                $ins = array_map(fn($r) => array_merge($r['data'], ['created_at' => $now, 'updated_at' => $now]), $chunk);
-                try { DB::table('cond_pago_aptos')->insert($ins); $results['imported'] += count($ins); }
-                catch (\Exception $e) { foreach ($ins as $i) { try { DB::table('cond_pago_aptos')->insert($i); $results['imported']++; } catch (\Exception $e2) { $results['errors'][] = ['info' => ($i['cod_edif_legacy'] ?? '') . '/' . ($i['num_apto_legacy'] ?? ''), 'reason' => $e2->getMessage()]; } } }
+        } catch (\Exception $e) {
+            @unlink($tempPath ?? ($tp ?? ''));
+            return redirect()->route('financiero.pagoapto.importar')->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
+        }
+
+        $now = now()->toDateTimeString();
+        foreach ($rows as $row) {
+            $data = array_filter($row['data'], fn($v) => $v !== null);
+            $data['created_at'] = $now;
+            $data['updated_at'] = $now;
+            try {
+                DB::table('cond_pago_aptos')->insert($data);
+                $results['imported']++;
+            } catch (\Exception $e) {
+                $results['errors'][] = [
+                    'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
+                    'reason' => $e->getMessage(),
+                ];
             }
-            DB::commit();
-        } catch (\Exception $e) { DB::rollBack(); @unlink($tp); return redirect()->route('financiero.pagoapto.importar')->with('error', 'Error: ' . $e->getMessage()); }
+        }
         @unlink($tp);
         return view('financiero.pagoapto-importar', ['results' => $results]);
     }

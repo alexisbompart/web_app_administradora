@@ -34,7 +34,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-file-invoice-dollar',
                 'color' => 'red',
                 'ruta_import' => 'financiero.deudas.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.deudas.index',
                 'tipo' => 'Carga Completa',
             ],
             [
@@ -43,7 +43,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-percentage',
                 'color' => 'purple',
                 'ruta_import' => 'financiero.descuentos.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.descuentos.index',
                 'tipo' => 'Carga Completa',
             ],
             [
@@ -52,7 +52,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-money-bill-wave',
                 'color' => 'green',
                 'ruta_import' => 'financiero.abonos.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.abonos.index',
                 'tipo' => 'Carga Completa',
             ],
             [
@@ -61,7 +61,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-receipt',
                 'color' => 'amber',
                 'ruta_import' => 'financiero.gastos.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.gastos.index',
                 'tipo' => 'Incremental',
             ],
             [
@@ -70,7 +70,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-money-check-alt',
                 'color' => 'cyan',
                 'ruta_import' => 'financiero.pagos.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.pagos.index',
                 'tipo' => 'Carga Completa',
             ],
             [
@@ -79,7 +79,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-credit-card',
                 'color' => 'teal',
                 'ruta_import' => 'financiero.pagoapto.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.pagos-apto.index',
                 'tipo' => 'Carga Completa',
             ],
             [
@@ -88,7 +88,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-exchange-alt',
                 'color' => 'orange',
                 'ruta_import' => 'financiero.movprefact.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.mov-prefact.index',
                 'tipo' => 'Carga Completa',
             ],
             [
@@ -97,7 +97,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-file-invoice',
                 'color' => 'pink',
                 'ruta_import' => 'financiero.movfactapto.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.fact-apto.index',
                 'tipo' => 'Carga Completa',
             ],
             [
@@ -106,7 +106,7 @@ class ImportDashboardController extends Controller
                 'icono' => 'fas fa-building',
                 'color' => 'slate',
                 'ruta_import' => 'financiero.movfactedif.importar',
-                'ruta_listado' => null,
+                'ruta_listado' => 'financiero.fact-edif.index',
                 'tipo' => 'Carga Completa',
             ],
         ];

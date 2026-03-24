@@ -10,12 +10,13 @@
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <style>
-            .carousel-container { position: relative; width: 100%; height: 520px; overflow: hidden; }
-            .carousel-slide { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in-out; overflow: hidden; }
-            .carousel-slide.active { opacity: 1; }
-            .carousel-slide img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
-            .carousel-dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.3s; }
-            .carousel-dot.active { background: #fff; transform: scale(1.2); }
+            .carousel-container { position: relative; width: 100%; height: 600px; overflow: hidden; background: linear-gradient(to right, #1f2937, #111827); }
+            .carousel-track { display: flex; height: 100%; transition: transform 0.7s ease-in-out; }
+            .carousel-slide { min-width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; background-size: cover; background-position: center; background-repeat: no-repeat; }
+            .carousel-slide .overlay { position: absolute; inset: 0; }
+            .carousel-slide .content { position: relative; z-index: 10; text-align: center; padding: 0 1.5rem; max-width: 56rem; }
+            .carousel-dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.3s; border: none; }
+            .carousel-dot.active { background: #fff; transform: scale(1.3); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
             .service-card { background: #fff; border-radius: 16px; padding: 28px 20px; text-align: center; border: 1px solid #e2e8f0; transition: all 0.3s; }
             .service-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
             .service-icon { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
@@ -86,62 +87,61 @@
         <!-- Hero Carousel -->
         <section class="carousel-container" id="inicio">
             @if($sliders->count() > 0)
+            <div id="carousel-track" class="carousel-track">
                 @foreach($sliders as $index => $slider)
-                <div class="carousel-slide {{ $index === 0 ? 'active' : '' }}" data-slide="{{ $index }}">
-                    <img src="{{ asset('storage/' . $slider->imagen) }}" alt="{{ $slider->titulo }}">
-                    <div class="absolute inset-0" style="background: linear-gradient(135deg, rgba(30,41,59,0.85) 0%, rgba(127,29,29,0.6) 100%);"></div>
-                    <div class="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center">
-                        <div class="max-w-2xl">
-                            @if($slider->titulo)
-                            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-white leading-tight mb-4">
-                                {{ $slider->titulo }}
-                            </h1>
-                            @endif
-                            @if($slider->subtitulo)
-                            <p class="text-xl sm:text-2xl text-white/80 font-light mb-2">
-                                {{ $slider->subtitulo }}
-                            </p>
-                            @endif
-                            @if($slider->boton_texto)
-                            <a href="{{ $slider->boton_url ?? '#' }}" class="inline-flex items-center mt-6 px-6 py-3 bg-burgundy-800 text-white font-heading font-semibold rounded-lg hover:bg-burgundy-700 transition">
-                                {{ $slider->boton_texto }} <i class="fas fa-arrow-right ml-2"></i>
-                            </a>
-                            @endif
-                            <div class="w-20 h-1 bg-burgundy-800 rounded mt-6"></div>
-                        </div>
+                <div class="carousel-slide" style="background-image: url('{{ asset('storage/' . $slider->imagen) }}');">
+                    <div class="overlay bg-gradient-to-br from-navy-800/80 via-navy-800/70 to-black/80"></div>
+                    <div class="content">
+                        @if($slider->titulo)
+                        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-white leading-tight mb-6 drop-shadow-lg">
+                            {{ $slider->titulo }}
+                        </h1>
+                        @endif
+                        @if($slider->subtitulo)
+                        <p class="text-xl sm:text-2xl md:text-3xl text-white/90 font-light mb-8 leading-relaxed drop-shadow-lg">
+                            {{ $slider->subtitulo }}
+                        </p>
+                        @endif
+                        @if($slider->boton_texto)
+                        <a href="{{ $slider->boton_url ?? '#' }}" class="inline-flex items-center px-8 py-3.5 bg-burgundy-800 text-white font-heading font-semibold rounded-full hover:bg-burgundy-700 hover:scale-105 transition-all duration-300 shadow-lg shadow-burgundy-800/30">
+                            {{ $slider->boton_texto }} <i class="fas fa-arrow-right ml-2"></i>
+                        </a>
+                        @endif
                     </div>
                 </div>
                 @endforeach
+            </div>
 
-                <!-- Carousel Controls -->
-                @if($sliders->count() > 1)
-                <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-3 z-10">
-                    @foreach($sliders as $index => $slider)
-                    <button class="carousel-dot {{ $index === 0 ? 'active' : '' }}" onclick="goToSlide({{ $index }})"></button>
-                    @endforeach
-                </div>
-                <button onclick="prevSlide()" class="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white transition">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                <button onclick="nextSlide()" class="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white transition">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-                @endif
+            <!-- Controls -->
+            @if($sliders->count() > 1)
+            <button onclick="prevSlide()" class="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/30 text-white p-4 rounded-full backdrop-blur-sm transition-all">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <button onclick="nextSlide()" class="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/30 text-white p-4 rounded-full backdrop-blur-sm transition-all">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+
+            <!-- Indicators -->
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-10">
+                @foreach($sliders as $index => $slider)
+                <button class="carousel-dot {{ $index === 0 ? 'active' : '' }}" onclick="goToSlide({{ $index }})"></button>
+                @endforeach
+            </div>
+            @endif
+
             @else
-                <!-- Fallback when no slides -->
-                <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&h=700&fit=crop" alt="Edificio" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center;">
-                <div class="absolute inset-0" style="background: linear-gradient(135deg, rgba(30,41,59,0.85) 0%, rgba(127,29,29,0.6) 100%);"></div>
-                <div class="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center">
-                    <div class="max-w-2xl">
-                        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-white leading-tight mb-4">
-                            {{ $settings['hero_titulo'] ?? 'Administradora Integral' }}
-                        </h1>
-                        <p class="text-xl sm:text-2xl text-white/80 font-light mb-2">
-                            {{ $settings['hero_subtitulo'] ?? 'Compania lider en el mercado inmobiliario' }}
-                        </p>
-                        <div class="w-20 h-1 bg-burgundy-800 rounded mt-6"></div>
-                    </div>
+            <!-- Fallback -->
+            <div class="carousel-slide" style="background-image: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&h=700&fit=crop');">
+                <div class="overlay bg-gradient-to-br from-navy-800/80 via-navy-800/70 to-black/80"></div>
+                <div class="content">
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-white leading-tight mb-6 drop-shadow-lg">
+                        {{ $settings['hero_titulo'] ?? 'Administradora Integral' }}
+                    </h1>
+                    <p class="text-xl sm:text-2xl md:text-3xl text-white/90 font-light mb-8 leading-relaxed drop-shadow-lg">
+                        {{ $settings['hero_subtitulo'] ?? 'Compania lider en el mercado inmobiliario' }}
+                    </p>
                 </div>
+            </div>
             @endif
         </section>
 
@@ -467,23 +467,33 @@
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // ============ CAROUSEL ============
-            var slides = document.querySelectorAll('.carousel-slide');
+            // ============ CAROUSEL (translateX slide) ============
+            var track = document.getElementById('carousel-track');
             var dots = document.querySelectorAll('.carousel-dot');
             var currentSlide = 0;
-            var totalSlides = slides.length;
+            var totalSlides = dots.length || (track ? track.children.length : 0);
             var carouselInterval;
+
+            function updateCarousel() {
+                if (track) {
+                    track.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
+                }
+                dots.forEach(function(dot, i) {
+                    if (i === currentSlide) {
+                        dot.classList.add('active');
+                    } else {
+                        dot.classList.remove('active');
+                    }
+                });
+            }
 
             if (totalSlides > 1) {
                 carouselInterval = setInterval(function() { nextSlide(); }, 5000);
             }
 
             window.goToSlide = function(index) {
-                slides[currentSlide].classList.remove('active');
-                if (dots[currentSlide]) dots[currentSlide].classList.remove('active');
                 currentSlide = index;
-                slides[currentSlide].classList.add('active');
-                if (dots[currentSlide]) dots[currentSlide].classList.add('active');
+                updateCarousel();
                 clearInterval(carouselInterval);
                 carouselInterval = setInterval(function() { nextSlide(); }, 5000);
             };

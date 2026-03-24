@@ -36,6 +36,18 @@
             <p class="text-xs text-slate_custom-400 mt-1">Total de unidades</p>
         </div>
 
+        @php
+            $morososQuery = \App\Models\Financiero\CondDeudaApto::whereHas('edificio', function($q) {
+                $q->where('activo', true);
+            })->where(function($q) {
+                $q->whereNull('fecha_pag')->orWhere('fecha_pag', '0001-01-01');
+            })->where(function($q) {
+                $q->whereNull('serial')->orWhere('serial', 'N');
+            });
+            $totalDeudas = $morososQuery->count();
+            $totalMontoPendiente = $morososQuery->sum('saldo');
+            $aptosEnMora = (clone $morososQuery)->distinct('apartamento_id')->count('apartamento_id');
+        @endphp
         <div class="stat-card">
             <div class="flex items-center justify-between">
                 <div class="stat-label">Deudas Pendientes</div>
@@ -43,8 +55,8 @@
                     <i class="fas fa-exclamation-triangle text-red-600"></i>
                 </div>
             </div>
-            <div class="stat-value text-red-600">{{ \App\Models\Financiero\CondDeudaApto::where('estatus', 'P')->count() }}</div>
-            <p class="text-xs text-slate_custom-400 mt-1">Pagos por cobrar</p>
+            <div class="stat-value text-red-600">{{ $totalDeudas }}</div>
+            <p class="text-xs text-slate_custom-400 mt-1">{{ number_format($totalMontoPendiente, 2, ',', '.') }} Bs en {{ $aptosEnMora }} aptos</p>
         </div>
 
         <div class="stat-card">
@@ -92,22 +104,29 @@
             </div>
             <div class="card-body">
                 @php
-                    $morosos = \App\Models\Financiero\CondDeudaApto::where('estatus', 'P')
+                    $morosos = \App\Models\Financiero\CondDeudaApto::whereHas('edificio', function($q) {
+                            $q->where('activo', true);
+                        })
+                        ->where(function($q) {
+                            $q->whereNull('fecha_pag')->orWhere('fecha_pag', '0001-01-01');
+                        })
+                        ->where(function($q) {
+                            $q->whereNull('serial')->orWhere('serial', 'N');
+                        })
                         ->selectRaw('apartamento_id, COUNT(*) as meses, SUM(saldo) as total_deuda')
                         ->groupBy('apartamento_id')
-                        ->having(\DB::raw('COUNT(*)'), '>=', 2)
                         ->orderByDesc('total_deuda')
-                        ->take(5)
+                        ->take(10)
                         ->get();
                 @endphp
                 @forelse($morosos as $moroso)
-                    @php $apto = \App\Models\Condominio\Apartamento::find($moroso->apartamento_id); @endphp
+                    @php $apto = \App\Models\Condominio\Apartamento::with('edificio')->find($moroso->apartamento_id); @endphp
                     <div class="flex items-center justify-between py-2 border-b border-slate_custom-200 last:border-0">
                         <div>
-                            <p class="text-sm font-medium text-navy-800">Apto {{ $apto?->num_apto }}</p>
-                            <p class="text-xs text-red-500">{{ $moroso->meses }} meses vencidos</p>
+                            <p class="text-sm font-medium text-navy-800">{{ $apto?->edificio?->nombre }} - {{ $apto?->num_apto }}</p>
+                            <p class="text-xs text-red-500">{{ $moroso->meses }} {{ $moroso->meses == 1 ? 'mes' : 'meses' }} pendiente{{ $moroso->meses > 1 ? 's' : '' }}</p>
                         </div>
-                        <span class="badge-danger">{{ number_format($moroso->total_deuda, 2, ',', '.') }} Bs</span>
+                        <span class="badge-danger text-xs">{{ number_format($moroso->total_deuda, 2, ',', '.') }} Bs</span>
                     </div>
                 @empty
                     <p class="text-sm text-slate_custom-400 text-center py-4">No hay morosos registrados</p>

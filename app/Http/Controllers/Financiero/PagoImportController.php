@@ -163,21 +163,29 @@ class PagoImportController extends Controller
         if (empty($rows)) { @unlink($tp); return redirect()->route('financiero.pagos.importar')->with('error', 'Sin filas.'); }
 
         $results = ['imported' => 0, 'previous_count' => 0, 'errors' => []];
-        DB::beginTransaction();
+        $results['previous_count'] = CondPago::withTrashed()->count();
+
         try {
-            $results['previous_count'] = CondPago::withTrashed()->count();
             DB::statement('SET session_replication_role = replica;');
             DB::table('cond_pagos')->truncate();
             DB::statement('SET session_replication_role = DEFAULT;');
+        } catch (\Exception $e) {
+            @unlink($tp);
+            return redirect()->route('financiero.pagos.importar')->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
+        }
 
-            $now = now()->toDateTimeString();
-            foreach (array_chunk($rows, 500) as $chunk) {
-                $ins = array_map(fn($r) => array_merge($r['data'], ['created_at' => $now, 'updated_at' => $now]), $chunk);
-                try { DB::table('cond_pagos')->insert($ins); $results['imported'] += count($ins); }
-                catch (\Exception $e) { foreach ($ins as $i) { try { DB::table('cond_pagos')->insert($i); $results['imported']++; } catch (\Exception $e2) { $results['errors'][] = ['info' => $i['id_pago_legacy'] ?? '', 'reason' => $e2->getMessage()]; } } }
+        $now = now()->toDateTimeString();
+        foreach ($rows as $row) {
+            $data = array_filter($row['data'], fn($v) => $v !== null);
+            $data['created_at'] = $now;
+            $data['updated_at'] = $now;
+            try {
+                DB::table('cond_pagos')->insert($data);
+                $results['imported']++;
+            } catch (\Exception $e) {
+                $results['errors'][] = ['info' => $data['id_pago_legacy'] ?? '', 'reason' => $e->getMessage()];
             }
-            DB::commit();
-        } catch (\Exception $e) { DB::rollBack(); @unlink($tp); return redirect()->route('financiero.pagos.importar')->with('error', 'Error: ' . $e->getMessage()); }
+        }
         @unlink($tp);
         return view('financiero.pagos-importar', ['results' => $results]);
     }

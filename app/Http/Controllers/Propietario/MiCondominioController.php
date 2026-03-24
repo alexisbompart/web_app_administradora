@@ -7,6 +7,8 @@ use App\Models\Condominio\Apartamento;
 use App\Models\Condominio\Propietario;
 use App\Models\Financiero\Banco;
 use App\Models\Financiero\CondDeudaApto;
+use App\Models\Financiero\CondMovFactApto;
+use App\Models\Financiero\CondMovFactEdif;
 use App\Models\Financiero\CondPago;
 use App\Models\Financiero\CondPagoApto;
 use App\Models\Financiero\Fondo;
@@ -287,5 +289,37 @@ class MiCondominioController extends Controller
             DB::rollBack();
             return redirect()->back()->with('error', 'Error al registrar el pago. Intente nuevamente.');
         }
+    }
+
+    public function recibosEdificio()
+    {
+        $propietario = $this->getPropietario();
+        if (!$propietario) return view('propietario.sin-acceso');
+
+        $apartamentos = $this->getApartamentos($propietario);
+        $edificioIds = $apartamentos->pluck('edificio_id')->unique();
+
+        $recibos = CondMovFactEdif::whereIn('edificio_id', $edificioIds)
+            ->with('edificio')
+            ->latest()
+            ->paginate(15);
+
+        return view('propietario.recibos-edificio', compact('propietario', 'recibos', 'apartamentos'));
+    }
+
+    public function recibosApartamento()
+    {
+        $propietario = $this->getPropietario();
+        if (!$propietario) return view('propietario.sin-acceso');
+
+        $apartamentos = $this->getApartamentos($propietario);
+        $apartamentoIds = $apartamentos->pluck('id');
+
+        $recibos = CondMovFactApto::whereIn('apartamento_id', $apartamentoIds)
+            ->with(['edificio', 'apartamento'])
+            ->latest()
+            ->paginate(15);
+
+        return view('propietario.recibos-apartamento', compact('propietario', 'recibos', 'apartamentos'));
     }
 }

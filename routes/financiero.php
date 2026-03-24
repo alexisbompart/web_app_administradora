@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Financiero\DataViewController;
 use App\Http\Controllers\Financiero\FondoController;
 use App\Http\Controllers\Financiero\CobranzaController;
 use App\Http\Controllers\Financiero\ConcBancariaController;
@@ -61,6 +62,17 @@ Route::post('movfactapto/importar/execute', [MovFactAptoImportController::class,
 Route::get('movprefact/importar', [MovPrefactImportController::class, 'showForm'])->name('movprefact.importar');
 Route::post('movprefact/importar/preview', [MovPrefactImportController::class, 'preview'])->name('movprefact.importar.preview');
 Route::post('movprefact/importar/execute', [MovPrefactImportController::class, 'execute'])->name('movprefact.importar.execute');
+
+// Data Views (listados)
+Route::get('deudas', [DataViewController::class, 'deudas'])->name('deudas.index');
+Route::get('descuentos', [DataViewController::class, 'descuentos'])->name('descuentos.index');
+Route::get('abonos', [DataViewController::class, 'abonos'])->name('abonos.index');
+Route::get('gastos', [DataViewController::class, 'gastos'])->name('gastos.index');
+Route::get('pagos', [DataViewController::class, 'pagos'])->name('pagos.index');
+Route::get('pagos-apto', [DataViewController::class, 'pagosApto'])->name('pagos-apto.index');
+Route::get('mov-prefact', [DataViewController::class, 'movPrefact'])->name('mov-prefact.index');
+Route::get('fact-apto', [DataViewController::class, 'factApto'])->name('fact-apto.index');
+Route::get('fact-edif', [DataViewController::class, 'factEdif'])->name('fact-edif.index');
 
 // Fondos
 Route::resource('fondos', FondoController::class);

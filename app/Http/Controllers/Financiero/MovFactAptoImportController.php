@@ -214,27 +214,30 @@ class MovFactAptoImportController extends Controller
         if (empty($rows)) { @unlink($tempPath); return redirect()->route('financiero.movfactapto.importar')->with('error', 'Sin filas.'); }
 
         $results = ['imported' => 0, 'previous_count' => 0, 'errors' => []];
+        $results['previous_count'] = CondMovFactApto::count();
 
-        DB::beginTransaction();
         try {
-            $results['previous_count'] = CondMovFactApto::count();
             DB::table('cond_movs_fact_apto')->truncate();
+        } catch (\Exception $e) {
+            @unlink($tempPath ?? ($tp ?? ''));
+            return redirect()->route('financiero.movfactapto.importar')->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
+        }
 
-            $now = now()->toDateTimeString();
-            foreach (array_chunk($rows, 500) as $chunk) {
-                $inserts = array_map(fn($r) => array_merge($r['data'], ['created_at' => $now, 'updated_at' => $now]), $chunk);
-                try {
-                    DB::table('cond_movs_fact_apto')->insert($inserts);
-                    $results['imported'] += count($inserts);
-                } catch (\Exception $e) {
-                    foreach ($inserts as $ins) {
-                        try { DB::table('cond_movs_fact_apto')->insert($ins); $results['imported']++; }
-                        catch (\Exception $e2) { $results['errors'][] = ['info' => ($ins['cod_edif_legacy'] ?? '') . '/' . ($ins['num_apto_legacy'] ?? ''), 'reason' => $e2->getMessage()]; }
-                    }
-                }
+        $now = now()->toDateTimeString();
+        foreach ($rows as $row) {
+            $data = array_filter($row['data'], fn($v) => $v !== null);
+            $data['created_at'] = $now;
+            $data['updated_at'] = $now;
+            try {
+                DB::table('cond_movs_fact_apto')->insert($data);
+                $results['imported']++;
+            } catch (\Exception $e) {
+                $results['errors'][] = [
+                    'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
+                    'reason' => $e->getMessage(),
+                ];
             }
-            DB::commit();
-        } catch (\Exception $e) { DB::rollBack(); @unlink($tempPath); return redirect()->route('financiero.movfactapto.importar')->with('error', 'Error: ' . $e->getMessage()); }
+        }
 
         @unlink($tempPath);
         return view('financiero.movfactapto-importar', ['results' => $results]);

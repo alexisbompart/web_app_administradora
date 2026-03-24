@@ -3,32 +3,29 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-2xl font-heading font-bold text-navy-800">Abonos por Apartamento</h2>
-                <p class="text-sm text-slate_custom-400 mt-1">Registro de abonos realizados por apartamento</p>
+                <p class="text-sm text-slate_custom-400 mt-1">cond_abonos_apto</p>
             </div>
             <div class="flex items-center gap-3">
-                <a href="{{ route('financiero.abonos.importar') }}" class="btn-secondary">
-                    <i class="fas fa-file-import mr-2"></i>Importar Abonos
+                <a href="{{ route('financiero.abonos.importar') }}" class="btn-primary">
+                    <i class="fas fa-file-import mr-2"></i>Importar
                 </a>
-                <a href="{{ route('admin.importaciones.index') }}" class="btn-secondary">
+                <a href="{{ route('admin.importaciones.index') }}" class="btn-primary">
                     <i class="fas fa-th-large mr-2"></i>Centro Importaciones
                 </a>
             </div>
         </div>
     </x-slot>
 
-    {{-- Stats --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div class="stat-card">
             <div class="flex items-center justify-between">
                 <div class="stat-label">Total Registros</div>
                 <div class="w-10 h-10 bg-navy-800/10 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-hand-holding-usd text-navy-800"></i>
+                    <i class="fas fa-money-bill-wave text-navy-800"></i>
                 </div>
             </div>
             <div class="stat-value">{{ number_format($totalCount) }}</div>
-            <p class="text-xs text-slate_custom-400 mt-1">Abonos registrados</p>
         </div>
-
         <div class="stat-card">
             <div class="flex items-center justify-between">
                 <div class="stat-label">Ultima Carga</div>
@@ -36,29 +33,27 @@
                     <i class="fas fa-clock text-burgundy-800"></i>
                 </div>
             </div>
-            <div class="stat-value text-sm">{{ $ultimaCarga ?? 'Sin datos' }}</div>
-            <p class="text-xs text-slate_custom-400 mt-1">Fecha de ultima importacion</p>
+            <div class="stat-value text-sm">{{ $ultimaCarga ? \Carbon\Carbon::parse($ultimaCarga)->format('d/m/Y H:i') : 'Nunca' }}</div>
         </div>
-
         <div class="stat-card">
             <div class="flex items-center justify-between">
-                <div class="stat-label">Tabla Origen</div>
-                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-database text-green-600"></i>
+                <div class="stat-label">Pagina</div>
+                <div class="w-10 h-10 bg-slate_custom-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-list text-slate_custom-500"></i>
                 </div>
             </div>
-            <div class="stat-value text-sm">cond_abonos_apto</div>
-            <p class="text-xs text-slate_custom-400 mt-1">Fuente de datos</p>
+            <div class="stat-value text-sm">{{ $items->currentPage() }} de {{ $items->lastPage() }}</div>
         </div>
     </div>
 
     <div class="card">
         <div class="card-header">
             <h3 class="text-sm font-heading font-semibold text-navy-800">
-                <i class="fas fa-hand-holding-usd mr-2 text-burgundy-800"></i>Listado de Abonos
+                <i class="fas fa-money-bill-wave mr-2 text-burgundy-800"></i>Listado
             </h3>
         </div>
         <div class="card-body p-0">
+            @if($items->count())
             <div class="overflow-x-auto">
                 <table class="table-custom">
                     <thead>
@@ -69,34 +64,35 @@
                             <th>Monto</th>
                             <th>Tipo</th>
                             <th>Serial</th>
-                            <th>Fecha Cancelacion</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($items as $item)
+                        @foreach($items as $item)
                         <tr>
-                            <td>{{ $item->edificio?->nombre ?? 'N/A' }}</td>
-                            <td class="font-medium">{{ $item->apartamento?->num_apto ?? 'N/A' }}</td>
-                            <td>{{ $item->periodo ?? 'N/A' }}</td>
-                            <td class="font-semibold">{{ number_format($item->monto, 2, ',', '.') }}</td>
-                            <td>{{ $item->tipo ?? 'N/A' }}</td>
-                            <td>{{ $item->serial ?? 'N/A' }}</td>
-                            <td>{{ $item->fecha_cancelacion?->format('d/m/Y') ?? 'N/A' }}</td>
+                                <td class="text-xs">{{ $item->edificio?->nombre ?? $item->cod_edif_legacy }}</td>
+                                <td class="text-xs">{{ $item->apartamento?->num_apto ?? $item->num_apto_legacy }}</td>
+                                <td class="text-xs">{{ $item->periodo }}</td>
+                                <td class="text-xs font-semibold">{{ number_format($item->monto ?? 0, 2, ',', '.') }}</td>
+                                <td class="text-xs">{{ $item->tipo_abono ?? $item->tipo }}</td>
+                                <td class="text-xs">{{ $item->serial }}</td>
                         </tr>
-                        @empty
-                        <tr>
-                            <td colspan="7" class="text-center text-slate_custom-400 py-8">
-                                <i class="fas fa-inbox text-3xl mb-2 block"></i>
-                                No hay abonos registrados
-                            </td>
-                        </tr>
-                        @endforelse
+                        @endforeach
                     </tbody>
                 </table>
             </div>
-            <div class="p-4">
-                {{ $items->links() }}
+            <div class="p-4">{{ $items->links() }}</div>
+            @else
+            <div class="p-8 text-center">
+                <div class="w-16 h-16 bg-slate_custom-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-money-bill-wave text-2xl text-slate_custom-400"></i>
+                </div>
+                <h3 class="text-lg font-heading font-semibold text-navy-800 mb-2">Sin datos</h3>
+                <p class="text-sm text-slate_custom-400 mb-4">No hay registros. Importe datos primero.</p>
+                <a href="{{ route('financiero.abonos.importar') }}" class="btn-primary">
+                    <i class="fas fa-file-import mr-2"></i>Importar
+                </a>
             </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

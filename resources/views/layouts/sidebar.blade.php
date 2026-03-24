@@ -19,12 +19,14 @@
 
     <!-- Navigation -->
     <nav class="mt-4 px-3 space-y-1 overflow-y-auto" style="max-height: calc(100vh - 8rem);">
-        <!-- Dashboard -->
+        <!-- Dashboard (hidden for cliente-propietario) -->
+        @unless(auth()->user()->hasRole('cliente-propietario'))
         <a href="{{ route('dashboard') }}"
            class="sidebar-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
             <i class="fas fa-tachometer-alt w-5 text-center"></i>
             <span x-show="sidebarOpen" x-transition>Dashboard</span>
         </a>
+        @endunless
 
         <!-- Mi Condominio - Solo para cliente-propietario -->
         @if(auth()->user()->hasRole('cliente-propietario'))
@@ -43,9 +45,21 @@
             <i class="fas fa-money-check-alt w-5 text-center"></i>
             <span x-show="sidebarOpen" x-transition>Registrar Pago</span>
         </a>
+        <a href="{{ route('mi-condominio.pago-integral') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.pago-integral*') ? 'active' : '' }}">
+            <i class="fas fa-credit-card w-5 text-center"></i>
+            <span x-show="sidebarOpen" x-transition>Pago Integral</span>
+        </a>
         <a href="{{ route('mi-condominio.pagos') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.pagos') ? 'active' : '' }}">
             <i class="fas fa-receipt w-5 text-center"></i>
             <span x-show="sidebarOpen" x-transition>Mis Pagos</span>
+        </a>
+        <a href="{{ route('mi-condominio.recibos-edificio') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.recibos-edificio') ? 'active' : '' }}">
+            <i class="fas fa-building w-5 text-center"></i>
+            <span x-show="sidebarOpen" x-transition>Recibo Edificio</span>
+        </a>
+        <a href="{{ route('mi-condominio.recibos-apartamento') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.recibos-apartamento') ? 'active' : '' }}">
+            <i class="fas fa-file-invoice w-5 text-center"></i>
+            <span x-show="sidebarOpen" x-transition>Recibo Apartamento</span>
         </a>
         <a href="{{ route('mi-condominio.estadisticas') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.estadisticas') ? 'active' : '' }}">
             <i class="fas fa-chart-line w-5 text-center"></i>
@@ -279,10 +293,12 @@
 
     <!-- Same nav links as desktop but always showing text -->
     <nav class="mt-4 px-3 space-y-1 overflow-y-auto" style="max-height: calc(100vh - 8rem);">
+        @unless(auth()->user()->hasRole('cliente-propietario'))
         <a href="{{ route('dashboard') }}" class="sidebar-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
             <i class="fas fa-tachometer-alt w-5 text-center"></i>
             <span>Dashboard</span>
         </a>
+        @endunless
 
         <!-- Mi Condominio - Solo para cliente-propietario (Mobile) -->
         @if(auth()->user()->hasRole('cliente-propietario'))
@@ -301,9 +317,21 @@
             <i class="fas fa-money-check-alt w-5 text-center"></i>
             <span>Registrar Pago</span>
         </a>
+        <a href="{{ route('mi-condominio.pago-integral') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.pago-integral*') ? 'active' : '' }}">
+            <i class="fas fa-credit-card w-5 text-center"></i>
+            <span>Pago Integral</span>
+        </a>
         <a href="{{ route('mi-condominio.pagos') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.pagos') ? 'active' : '' }}">
             <i class="fas fa-receipt w-5 text-center"></i>
             <span>Mis Pagos</span>
+        </a>
+        <a href="{{ route('mi-condominio.recibos-edificio') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.recibos-edificio') ? 'active' : '' }}">
+            <i class="fas fa-building w-5 text-center"></i>
+            <span>Recibo Edificio</span>
+        </a>
+        <a href="{{ route('mi-condominio.recibos-apartamento') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.recibos-apartamento') ? 'active' : '' }}">
+            <i class="fas fa-file-invoice w-5 text-center"></i>
+            <span>Recibo Apartamento</span>
         </a>
         <a href="{{ route('mi-condominio.estadisticas') }}" class="sidebar-link {{ request()->routeIs('mi-condominio.estadisticas') ? 'active' : '' }}">
             <i class="fas fa-chart-line w-5 text-center"></i>

@@ -1,0 +1,84 @@
+<x-app-layout>
+    <x-slot name="header">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-heading font-bold text-navy-800">Recibos del Apartamento</h2>
+                <p class="text-sm text-slate_custom-400 mt-1">Facturacion detallada de mis apartamentos</p>
+            </div>
+        </div>
+    </x-slot>
+
+    {{-- Apartamentos del propietario --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        @foreach($apartamentos as $apto)
+        <div class="stat-card">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-navy-800/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-door-open text-navy-800"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-navy-800">{{ $apto->edificio->nombre }}</p>
+                    <p class="text-xs text-slate_custom-400">Apto {{ $apto->num_apto }} | Alicuota {{ number_format($apto->alicuota, 2) }}%</p>
+                </div>
+            </div>
+        </div>
+        @endforeach
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="text-sm font-heading font-semibold text-navy-800">
+                <i class="fas fa-file-invoice mr-2 text-burgundy-800"></i>Recibos de Condominio - Apartamento
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            @if($recibos->count())
+            <div class="overflow-x-auto">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Edificio</th>
+                            <th>Apartamento</th>
+                            <th>Propietario</th>
+                            <th>Fecha Fact</th>
+                            <th>Pago Total</th>
+                            <th>Honorarios</th>
+                            <th>Int. Mora</th>
+                            <th>Meses Deuda</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($recibos as $recibo)
+                        <tr>
+                            <td class="font-medium text-navy-800 text-xs">{{ $recibo->edificio?->nombre ?? $recibo->cod_edif_legacy }}</td>
+                            <td class="text-xs font-semibold">{{ $recibo->apartamento?->num_apto ?? $recibo->num_apto_legacy }}</td>
+                            <td class="text-xs">{{ $recibo->nombre_propietario }}</td>
+                            <td class="text-xs">{{ $recibo->fecha_fact?->format('d/m/Y') }}</td>
+                            <td class="text-xs font-semibold text-red-600">{{ number_format($recibo->pago_total ?? 0, 2, ',', '.') }}</td>
+                            <td class="text-xs">{{ number_format($recibo->honorarios ?? 0, 2, ',', '.') }}</td>
+                            <td class="text-xs">{{ number_format($recibo->int_mora ?? 0, 2, ',', '.') }}</td>
+                            <td class="text-xs text-center">
+                                @if(($recibo->mes_deuda ?? 0) > 0)
+                                    <span class="badge-danger text-xs">{{ $recibo->mes_deuda }}</span>
+                                @else
+                                    <span class="badge-success text-xs">0</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4">{{ $recibos->links() }}</div>
+            @else
+            <div class="p-8 text-center">
+                <div class="w-16 h-16 bg-slate_custom-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-file-invoice text-2xl text-slate_custom-400"></i>
+                </div>
+                <h3 class="text-lg font-heading font-semibold text-navy-800 mb-2">Sin recibos</h3>
+                <p class="text-sm text-slate_custom-400">No hay recibos de apartamento disponibles.</p>
+            </div>
+            @endif
+        </div>
+    </div>
+</x-app-layout>

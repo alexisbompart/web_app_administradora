@@ -216,53 +216,29 @@ class DeudaImportController extends Controller
         }
 
         $results = ['imported' => 0, 'previous_count' => 0, 'errors' => []];
+        $results['previous_count'] = CondDeudaApto::count();
 
-        DB::beginTransaction();
         try {
-            // Save current count
-            $results['previous_count'] = CondDeudaApto::count();
-
-            // TRUNCATE the table (fast, resets sequences)
             DB::table('cond_deudas_apto')->truncate();
-
-            // Insert in chunks of 500 for performance
-            $now = now()->toDateTimeString();
-            $chunks = array_chunk($rows, 500);
-
-            foreach ($chunks as $chunk) {
-                $inserts = [];
-                foreach ($chunk as $row) {
-                    $data = $row['data'];
-                    $data['created_at'] = $now;
-                    $data['updated_at'] = $now;
-                    $inserts[] = $data;
-                }
-
-                try {
-                    DB::table('cond_deudas_apto')->insert($inserts);
-                    $results['imported'] += count($inserts);
-                } catch (\Exception $e) {
-                    // If chunk fails, try one by one
-                    foreach ($inserts as $insert) {
-                        try {
-                            DB::table('cond_deudas_apto')->insert($insert);
-                            $results['imported']++;
-                        } catch (\Exception $e2) {
-                            $results['errors'][] = [
-                                'info' => ($insert['cod_edif_legacy'] ?? '') . '/' . ($insert['num_apto_legacy'] ?? '') . '/' . ($insert['periodo'] ?? ''),
-                                'reason' => $e2->getMessage(),
-                            ];
-                        }
-                    }
-                }
-            }
-
-            DB::commit();
         } catch (\Exception $e) {
-            DB::rollBack();
-            @unlink($tempPath);
-            return redirect()->route('financiero.deudas.importar')
-                ->with('error', 'Error critico en la importacion: ' . $e->getMessage());
+            @unlink($tempPath ?? ($tp ?? ''));
+            return redirect()->route('financiero.deudas.importar')->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
+        }
+
+        $now = now()->toDateTimeString();
+        foreach ($rows as $row) {
+            $data = array_filter($row['data'], fn($v) => $v !== null);
+            $data['created_at'] = $now;
+            $data['updated_at'] = $now;
+            try {
+                DB::table('cond_deudas_apto')->insert($data);
+                $results['imported']++;
+            } catch (\Exception $e) {
+                $results['errors'][] = [
+                    'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
+                    'reason' => $e->getMessage(),
+                ];
+            }
         }
 
         @unlink($tempPath);

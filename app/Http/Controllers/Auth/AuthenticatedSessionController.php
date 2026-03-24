@@ -29,6 +29,17 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        $user = Auth::user();
+
+        // Redirect based on role
+        if ($user->hasRole('cliente-propietario')) {
+            return redirect()->intended(route('mi-condominio.dashboard'));
+        }
+
+        if ($user->hasRole('proveedor')) {
+            return redirect()->intended(route('proveedores.facturas.index'));
+        }
+
         return redirect()->intended(RouteServiceProvider::HOME);
     }
 

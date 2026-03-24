@@ -21,16 +21,24 @@
                     </h3>
                 </div>
                 <div class="card-body">
-                    <!-- Apartment Info -->
+                    <!-- Afiliado Info -->
                     <div class="bg-slate_custom-50 rounded-lg p-4 mb-4">
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
-                                <span class="text-xs text-slate_custom-400 block">Apartamento</span>
-                                <span class="text-sm font-semibold text-navy-800">{{ $apartamento->num_apto }}</span>
+                                <span class="text-xs text-slate_custom-400 block">Afiliado</span>
+                                <span class="text-sm font-semibold text-navy-800">{{ $afiliado->nombres }} {{ $afiliado->apellidos }}</span>
                             </div>
                             <div>
-                                <span class="text-xs text-slate_custom-400 block">Propietario</span>
-                                <span class="text-sm font-semibold text-navy-800">{{ $apartamento->propietario_nombre ?? 'N/A' }}</span>
+                                <span class="text-xs text-slate_custom-400 block">Cedula/RIF</span>
+                                <span class="text-sm font-semibold text-navy-800">{{ $afiliado->cedula_rif }}</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate_custom-400 block">Edificio</span>
+                                <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilapto?->apartamento?->edificio?->nombre ?? 'N/A' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate_custom-400 block">Apartamento</span>
+                                <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilapto?->apartamento?->num_apto ?? 'N/A' }}</span>
                             </div>
                         </div>
                     </div>
@@ -69,11 +77,10 @@
         <div class="lg:col-span-1">
             <form method="POST" action="{{ route('financiero.pago-integral.procesar') }}" id="procesarPagoForm">
                 @csrf
-                <input type="hidden" name="apartamento_id" value="{{ $apartamento->id }}">
+                <input type="hidden" name="afiliado_id" value="{{ $afiliado->id }}">
                 @foreach($deudas as $deuda)
                     <input type="hidden" name="deudas[]" value="{{ $deuda->id }}">
                 @endforeach
-                <input type="hidden" name="monto_total" value="{{ $total }}">
                 <input type="hidden" name="confirmar" value="1">
 
                 <div class="card mb-6">

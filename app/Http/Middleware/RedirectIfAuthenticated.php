@@ -21,6 +21,15 @@ class RedirectIfAuthenticated
 
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
+                $user = Auth::guard($guard)->user();
+
+                if ($user->hasRole('cliente-propietario')) {
+                    return redirect()->route('mi-condominio.dashboard');
+                }
+                if ($user->hasRole('proveedor')) {
+                    return redirect()->route('proveedores.facturas.index');
+                }
+
                 return redirect(RouteServiceProvider::HOME);
             }
         }

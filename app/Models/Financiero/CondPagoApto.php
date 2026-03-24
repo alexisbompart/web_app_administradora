@@ -50,6 +50,11 @@ class CondPagoApto extends Model
         return $this->belongsTo(Apartamento::class);
     }
 
+    public function edificio(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Condominio\Edificio::class);
+    }
+
     public function condDeudaApto(): BelongsTo
     {
         return $this->belongsTo(CondDeudaApto::class, 'deuda_id');
