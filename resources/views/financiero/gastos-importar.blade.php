@@ -44,23 +44,25 @@
             <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Existentes</div><div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><i class="fas fa-sync-alt text-blue-600"></i></div></div><div class="stat-value text-blue-600">{{ number_format($summary['update']) }}</div></div>
             <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Errores</div><div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center"><i class="fas fa-times-circle text-red-600"></i></div></div><div class="stat-value text-red-600">{{ number_format($summary['errores']) }}</div></div>
         </div>
+        @if(isset($summary['detected_cols']))
+        <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-xl text-xs mb-2"><i class="fas fa-info-circle mr-1"></i><strong>Columnas detectadas:</strong> {{ $summary['detected_cols'] }}</div>
+        @endif
         @if(count($errors) > 0)
-        <div class="card" x-data="{ show: false }">
+        <div class="card" x-data="{ show: {{ $summary['validas'] == 0 ? 'true' : 'false' }} }">
             <div class="card-header cursor-pointer" @click="show = !show"><h3 class="text-sm font-heading font-semibold text-red-600 flex items-center justify-between w-full"><span><i class="fas fa-exclamation-triangle mr-2"></i>Filas con errores ({{ count($errors) }})</span><i class="fas" :class="show ? 'fa-chevron-up' : 'fa-chevron-down'"></i></h3></div>
             <div class="card-body p-0" x-show="show" x-transition><div class="overflow-x-auto max-h-64 overflow-y-auto"><table class="table-custom"><thead><tr><th>Linea</th><th>Info</th><th>Razon</th></tr></thead><tbody>@foreach(array_slice($errors, 0, 50) as $err)<tr><td>{{ $err['line'] }}</td><td class="text-xs font-medium">{{ $err['info'] }}</td><td class="text-red-600 text-xs">{{ $err['reason'] }}</td></tr>@endforeach</tbody></table></div></div>
         </div>
         @endif
         <div class="card">
             <div class="card-header"><h3 class="text-sm font-heading font-semibold text-navy-800"><i class="fas fa-eye mr-2 text-burgundy-800"></i>Muestra (primeras {{ count($previewRows) }})</h3></div>
-            <div class="card-body p-0"><div class="overflow-x-auto"><table class="table-custom"><thead><tr><th>Linea</th><th>Estado</th><th>COD_GASTO</th><th>Descripcion</th><th>Tipo</th><th>Clasif.</th><th>Status</th></tr></thead><tbody>
+            <div class="card-body p-0"><div class="overflow-x-auto"><table class="table-custom"><thead><tr><th>Linea</th><th>COD_GASTO</th><th>Tipo G.</th><th>Clasif.</th><th>Descripcion</th><th>Status</th></tr></thead><tbody>
                 @foreach($previewRows as $row)
                 <tr>
                     <td class="text-xs">{{ $row['line'] }}</td>
-                    <td><span class="badge-success text-xs">Valido</span></td>
                     <td class="font-medium text-sm">{{ $row['display']['cod_gasto'] }}</td>
+                    <td class="text-xs text-center">{{ $row['display']['tipo_gasto'] }}</td>
+                    <td class="text-xs text-center">{{ $row['display']['clasificacion'] }}</td>
                     <td class="text-xs">{{ \Illuminate\Support\Str::limit($row['display']['descripcion'], 40) }}</td>
-                    <td class="text-xs">{{ $row['display']['tipo_gasto'] }}</td>
-                    <td class="text-xs">{{ $row['display']['clasificacion'] }}</td>
                     <td class="text-xs">{{ $row['display']['status'] }}</td>
                 </tr>
                 @endforeach

@@ -44,6 +44,7 @@
                             <th>Deuda Actual</th>
                             <th>Deuda Anterior</th>
                             <th>Fdo Reserva</th>
+                            <th>Accion</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -56,6 +57,11 @@
                             <td class="text-xs font-semibold text-red-600">{{ number_format($recibo->deuda_act_edif ?? 0, 2, ',', '.') }}</td>
                             <td class="text-xs">{{ number_format($recibo->deuda_ant_edif ?? 0, 2, ',', '.') }}</td>
                             <td class="text-xs">{{ number_format($recibo->sdo_act_fdo_res ?? 0, 2, ',', '.') }}</td>
+                            <td>
+                                <a href="{{ route('mi-condominio.ver-recibo-edificio', $recibo->id) }}" class="text-burgundy-800 hover:text-navy-800 text-xs font-semibold">
+                                    <i class="fas fa-file-pdf mr-1"></i>Ver Recibo
+                                </a>
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>

@@ -114,6 +114,15 @@
                 </div>
             </div>
 
+            <!-- Alerta de orden -->
+            <div id="alerta-orden" class="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-6 flex items-start gap-3" style="display: none;">
+                <i class="fas fa-exclamation-triangle text-amber-600 text-xl mt-0.5"></i>
+                <div>
+                    <p class="font-heading font-bold text-amber-800">Debe pagar las deudas en orden</p>
+                    <p class="text-sm text-amber-700 mt-1">Las deudas deben pagarse desde la mas antigua hasta la mas reciente, sin saltar periodos. Seleccione primero los recibos mas antiguos (los primeros de la lista).</p>
+                </div>
+            </div>
+
             <!-- Paso 2: Datos del pago -->
             <div class="card mb-6" id="paso2" style="display: none;">
                 <div class="card-header">
@@ -221,9 +230,26 @@
             var btnNinguno = document.getElementById('btn-ninguno');
             var btnEnviar = document.getElementById('btn-enviar');
             var form = document.getElementById('form-pago');
+            var alertaOrden = document.getElementById('alerta-orden');
 
             function formatMoney(val) {
                 return val.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function validarOrden() {
+                // Check that selection is consecutive from the oldest (first)
+                var primerNoSeleccionado = false;
+                var hayHueco = false;
+
+                checkboxes.forEach(function(cb) {
+                    if (!cb.checked) {
+                        primerNoSeleccionado = true;
+                    } else if (primerNoSeleccionado) {
+                        hayHueco = true;
+                    }
+                });
+
+                return !hayHueco;
             }
 
             function recalcular() {
@@ -242,16 +268,39 @@
                 resumenCount.textContent = count;
                 resumenTotal.textContent = formatMoney(total) + ' Bs';
 
-                if (count > 0) {
+                // Validate order
+                if (count > 0 && !validarOrden()) {
+                    alertaOrden.style.display = '';
+                    paso2.style.display = 'none';
+                } else if (count > 0) {
+                    alertaOrden.style.display = 'none';
                     paso2.style.display = '';
                 } else {
+                    alertaOrden.style.display = 'none';
                     paso2.style.display = 'none';
                 }
             }
 
-            checkboxes.forEach(function(cb) {
-                cb.addEventListener('change', recalcular);
+            checkboxes.forEach(function(cb, index) {
+                cb.addEventListener('change', function() {
+                    if (this.checked && !validarOrdenAlSeleccionar(index)) {
+                        this.checked = false;
+                        alert('Debe pagar las deudas mas antiguas primero.\n\nSeleccione los recibos en orden, comenzando por el mas antiguo (el primero de la lista).');
+                        return;
+                    }
+                    recalcular();
+                });
             });
+
+            function validarOrdenAlSeleccionar(indexActual) {
+                // When checking a box, all previous must be checked
+                for (var i = 0; i < indexActual; i++) {
+                    if (!checkboxes[i].checked) {
+                        return false;
+                    }
+                }
+                return true;
+            }
 
             btnTodos.addEventListener('click', function() {
                 checkboxes.forEach(function(cb) { cb.checked = true; });
@@ -269,6 +318,11 @@
 
                 if (count === 0) {
                     alert('Debe seleccionar al menos un recibo para pagar.');
+                    return;
+                }
+
+                if (!validarOrden()) {
+                    alert('Debe pagar las deudas en orden cronologico, desde la mas antigua.');
                     return;
                 }
 

@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Financiero;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\ImportFileParser;
 use App\Models\Financiero\CondGasto;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class GastoImportController extends Controller
 {
+    use ImportFileParser;
+
     private array $columnMap = [
         'APLICA_IDB'            => 'aplica_idb',
         'CLASIFICACION'         => 'clasificacion',
@@ -61,24 +62,47 @@ class GastoImportController extends Controller
     {
         $request->validate(['archivo' => 'required|file|max:102400']);
 
-        $parsed = $this->parseFile($request->file('archivo'));
-
-        if (empty($parsed['rows'])) {
-            return back()->with('error', 'No se encontraron filas validas. Errores: ' . count($parsed['errors']));
+        $lines = $this->readFileLines($request->file('archivo'));
+        if (empty($lines) || trim($lines[0]) === '') {
+            return back()->with('error', 'Archivo vacio o sin cabecera.');
         }
 
-        // Store file path for execute (keep original file)
+        $headerFields = $this->parseHeader($lines[0]);
+        $headerIndex  = $this->buildHeaderIndex($headerFields);
+
+        // Debug: show detected columns to help diagnose mismatches
+        $detectedColumns = implode(', ', $headerFields);
+
+        $parsed = $this->parseRows($lines, $headerIndex);
+
+        if (empty($parsed['rows'])) {
+            // Return to view showing errors + detected columns for diagnosis
+            $summary = [
+                'total_archivo' => count($parsed['errors']),
+                'validas'        => 0,
+                'new'            => 0,
+                'update'         => 0,
+                'errores'        => count($parsed['errors']),
+                'total_actual_bd'=> CondGasto::count(),
+                'detected_cols'  => $detectedColumns,
+            ];
+            $previewRows = [];
+            $errors = $parsed['errors'];
+            return view('financiero.gastos-importar', compact('summary', 'previewRows', 'errors'));
+        }
+
         $storedPath = $request->file('archivo')->store('imports');
         session()->put('import_gastos_path', $storedPath);
 
         $totalActual = CondGasto::count();
         $summary = [
-            'total_archivo' => count($parsed['rows']) + count($parsed['errors']),
-            'validas' => count($parsed['rows']),
-            'new' => count($parsed['rows']),
-            'update' => 0,
-            'errores' => count($parsed['errors']),
-            'total_actual_bd' => $totalActual,
+            'total_archivo'  => count($parsed['rows']) + count($parsed['errors']),
+            'validas'        => count($parsed['rows']),
+            'new'            => count($parsed['rows']),
+            'update'         => 0,
+            'errores'        => count($parsed['errors']),
+            'total_actual_bd'=> $totalActual,
+            'detected_cols'  => $detectedColumns,
         ];
         $previewRows = array_slice($parsed['rows'], 0, 50);
         $errors = $parsed['errors'];
@@ -90,7 +114,6 @@ class GastoImportController extends Controller
     {
         $request->validate(['duplicate_action' => 'required|in:update,skip']);
 
-        // Re-parse from stored file
         $storedPath = session()->get('import_gastos_path');
         if (!$storedPath || !file_exists(storage_path('app/' . $storedPath))) {
             return redirect()->route('financiero.gastos.importar')
@@ -98,11 +121,15 @@ class GastoImportController extends Controller
         }
 
         $fullPath = storage_path('app/' . $storedPath);
-        $parsed = $this->parseFile(new \Illuminate\Http\UploadedFile($fullPath, basename($fullPath)));
+        $tmpFile  = new \Illuminate\Http\UploadedFile($fullPath, basename($fullPath));
+        $lines = $this->readFileLines($tmpFile);
+        $headerIndex = $this->buildHeaderIndex($this->parseHeader($lines[0]));
+        $parsed = $this->parseRows($lines, $headerIndex);
+
+        @unlink($fullPath);
+        session()->forget('import_gastos_path');
 
         if (empty($parsed['rows'])) {
-            @unlink($fullPath);
-            session()->forget('import_gastos_path');
             return redirect()->route('financiero.gastos.importar')
                 ->with('error', 'Sin filas validas al reprocesar.');
         }
@@ -111,15 +138,17 @@ class GastoImportController extends Controller
         $results = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'errors' => []];
 
         foreach ($parsed['rows'] as $row) {
-            $data = array_filter($row['data'], fn($v) => $v !== null);
-            $codGasto = $data['cod_gasto'] ?? $data['codigo'] ?? '';
+            $data      = array_filter($row['data'], fn($v) => $v !== null);
+            $codGasto  = $data['cod_gasto'] ?? '';
+            $tipoGasto = $data['tipo_gasto'] ?? null;
 
             try {
-                $existing = CondGasto::where('cod_gasto', $codGasto)->first();
+                $existing = CondGasto::where('cod_gasto', $codGasto)
+                    ->where('tipo_gasto', $tipoGasto)
+                    ->first();
 
                 if ($existing) {
                     if ($duplicateAction === 'update') {
-                        unset($data['codigo']);
                         $existing->update($data);
                         $results['updated']++;
                     } else {
@@ -130,72 +159,55 @@ class GastoImportController extends Controller
                     $results['imported']++;
                 }
             } catch (\Exception $e) {
-                $results['errors'][] = ['info' => $codGasto, 'reason' => $e->getMessage()];
+                $results['errors'][] = ['info' => $codGasto . '/' . $tipoGasto, 'reason' => $e->getMessage()];
             }
         }
-
-        @unlink($fullPath);
-        session()->forget('import_gastos_path');
 
         return view('financiero.gastos-importar', ['results' => $results]);
     }
 
-    private function parseFile($file): array
+    // -----------------------------------------------------------------------
+    private function parseRows(array $lines, array $headerIndex): array
     {
-        // Read entire file and convert encoding from Latin1 to UTF8
-        $content = file_get_contents($file->getRealPath());
-        if (!mb_check_encoding($content, 'UTF-8')) {
-            $content = mb_convert_encoding($content, 'UTF-8', 'Windows-1252');
-        }
-        // Remove invalid UTF-8 characters
-        $content = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $content);
-        $lines = explode("\n", $content);
-
-        if (empty($lines)) return ['rows' => [], 'errors' => [['line' => 0, 'info' => '', 'reason' => 'Archivo vacio']]];
-
-        $headerLine = preg_replace('/^\xEF\xBB\xBF/', '', trim($lines[0]));
-        $headerFields = explode('|', $headerLine);
-        $headerFields = array_values(array_filter($headerFields, fn($f) => trim($f) !== '' && trim($f) !== "''"));
-        $headerFields = array_map('trim', $headerFields);
-
-        $headerIndex = [];
-        foreach ($headerFields as $idx => $field) { $headerIndex[$field] = $idx; }
-
-        $rows = [];
+        $rows   = [];
         $errors = [];
 
         for ($lineNumber = 2; $lineNumber <= count($lines); $lineNumber++) {
             $line = trim($lines[$lineNumber - 1]);
-            if ($line === '' || $line === "''||''") continue;
+            if ($line === '' || $line === "''||''" || str_starts_with($line, "''||''")) continue;
 
-            $fields = explode('|', $line);
+            $fields  = explode('|', $line);
             $rowData = [];
-            $rowErrors = [];
 
             foreach ($this->columnMap as $sourceCol => $targetCol) {
                 if (!isset($headerIndex[$sourceCol])) continue;
-                $idx = $headerIndex[$sourceCol];
+                $idx   = $headerIndex[$sourceCol];
                 $value = isset($fields[$idx]) ? trim($fields[$idx]) : '';
-                if ($value === '') $value = null;
-                $rowData[$sourceCol] = $value;
+                $rowData[$sourceCol] = ($value === '') ? null : $value;
             }
 
-            $codGasto = $rowData['COD_GASTO'] ?? null;
+            $codGasto   = $rowData['COD_GASTO'] ?? null;
             $descripcion = $rowData['DESCRIPCION'] ?? null;
 
-            if (!$codGasto) $rowErrors[] = "COD_GASTO vacio";
-            if (!$descripcion) $rowErrors[] = "DESCRIPCION vacia";
+            // Fallback: use cod_gasto as descripcion if missing
+            if (!$descripcion && $codGasto) {
+                $descripcion = $codGasto;
+            }
+
+            $rowErrors = [];
+            if (!$codGasto) $rowErrors[] = 'COD_GASTO vacio';
 
             if (!empty($rowErrors)) {
                 $errors[] = ['line' => $lineNumber, 'info' => $codGasto ?? '--', 'reason' => implode(', ', $rowErrors)];
                 continue;
             }
 
+            // Build mapped data
             $mapped = [
-                'codigo' => $codGasto,
-                'cod_gasto' => $codGasto,
+                'codigo'      => $codGasto,
+                'cod_gasto'   => $codGasto,
                 'descripcion' => $descripcion,
-                'activo' => ($rowData['STATUS'] ?? 'A') !== 'I',
+                'activo'      => ($rowData['STATUS'] ?? 'A') !== 'I',
             ];
 
             foreach ($this->columnMap as $sourceCol => $targetCol) {
@@ -208,32 +220,23 @@ class GastoImportController extends Controller
                 } elseif ($targetCol === 'cuotas') {
                     $mapped[$targetCol] = is_numeric($value) ? (int) $value : null;
                 } else {
-                    $mapped[$targetCol] = $value;
+                    $mapped[$targetCol] = $this->sanitizeString($value);
                 }
             }
 
-            $mapped = array_filter($mapped, fn($v) => $v !== null);
-
             $rows[] = [
-                'line' => $lineNumber,
+                'line'    => $lineNumber,
                 'display' => [
-                    'cod_gasto' => $codGasto,
-                    'descripcion' => $descripcion,
-                    'tipo_gasto' => $rowData['TIPO_GASTO'] ?? '',
-                    'clasificacion' => $rowData['CLASIFICACION'] ?? '',
-                    'status' => $rowData['STATUS'] ?? '',
+                    'cod_gasto'    => $codGasto,
+                    'descripcion'  => $descripcion,
+                    'tipo_gasto'   => $rowData['TIPO_GASTO'] ?? '',
+                    'clasificacion'=> $rowData['CLASIFICACION'] ?? '',
+                    'status'       => $rowData['STATUS'] ?? '',
                 ],
                 'data' => $mapped,
             ];
         }
 
         return ['rows' => $rows, 'errors' => $errors];
-    }
-
-    private function parseDateTime(?string $value): ?string
-    {
-        if (!$value) return null;
-        try { return Carbon::createFromFormat('Y/m/d H:i', $value)->toDateTimeString(); }
-        catch (\Exception $e) { try { return Carbon::parse($value)->toDateTimeString(); } catch (\Exception $e) { return null; } }
     }
 }

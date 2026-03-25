@@ -127,10 +127,21 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <a href="{{ route('mi-condominio.recibo-condominio', $deuda->id) }}"
-                                       class="text-burgundy-800 hover:text-navy-800 transition text-sm">
-                                        <i class="fas fa-file-alt mr-1"></i>Ver Recibo
+                                    @php
+                                        $factApto = \App\Models\Financiero\CondMovFactApto::where('apartamento_id', $deuda->apartamento_id)
+                                            ->where('periodo', $deuda->periodo)->first();
+                                    @endphp
+                                    @if($factApto)
+                                    <a href="{{ route('mi-condominio.ver-recibo', $factApto->id) }}"
+                                       class="text-burgundy-800 hover:text-navy-800 transition text-xs font-semibold">
+                                        <i class="fas fa-file-pdf mr-1"></i>Ver Recibo
                                     </a>
+                                    @else
+                                    <a href="{{ route('mi-condominio.recibo-condominio', $deuda->id) }}"
+                                       class="text-slate_custom-400 hover:text-navy-800 transition text-xs">
+                                        <i class="fas fa-file-alt mr-1"></i>Detalle
+                                    </a>
+                                    @endif
                                 </td>
                             </tr>
                         @empty

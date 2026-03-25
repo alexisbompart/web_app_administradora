@@ -45,6 +45,7 @@
                             <th>Honorarios</th>
                             <th>Int. Mora</th>
                             <th>Meses Deuda</th>
+                            <th>Accion</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -63,6 +64,11 @@
                                 @else
                                     <span class="badge-success text-xs">0</span>
                                 @endif
+                            </td>
+                            <td>
+                                <a href="{{ route('mi-condominio.ver-recibo', $recibo->id) }}" class="text-burgundy-800 hover:text-navy-800 text-xs font-semibold">
+                                    <i class="fas fa-file-pdf mr-1"></i>Ver Recibo
+                                </a>
                             </td>
                         </tr>
                         @endforeach

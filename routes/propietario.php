@@ -10,6 +10,8 @@ Route::get('/recibo/{pagoApto}', [MiCondominioController::class, 'recibo'])->nam
 Route::get('/recibo-condominio/{deuda}', [MiCondominioController::class, 'reciboCondominio'])->name('recibo-condominio');
 Route::get('/recibos-edificio', [MiCondominioController::class, 'recibosEdificio'])->name('recibos-edificio');
 Route::get('/recibos-apartamento', [MiCondominioController::class, 'recibosApartamento'])->name('recibos-apartamento');
+Route::get('/ver-recibo/{factApto}', [MiCondominioController::class, 'verRecibo'])->name('ver-recibo');
+Route::get('/ver-recibo-edificio/{factEdif}', [MiCondominioController::class, 'verReciboEdificio'])->name('ver-recibo-edificio');
 Route::get('/estadisticas', [MiCondominioController::class, 'estadisticas'])->name('estadisticas');
 Route::get('/registrar-pago', [MiCondominioController::class, 'registrarPagoForm'])->name('registrar-pago');
 Route::post('/registrar-pago', [MiCondominioController::class, 'registrarPago'])->name('registrar-pago.store');

@@ -9,8 +9,10 @@ use App\Models\Financiero\Banco;
 use App\Models\Financiero\CondDeudaApto;
 use App\Models\Financiero\CondMovFactApto;
 use App\Models\Financiero\CondMovFactEdif;
+use App\Models\Financiero\CondMovPrefact;
 use App\Models\Financiero\CondPago;
 use App\Models\Financiero\CondPagoApto;
+use App\Models\Financiero\CondGasto;
 use App\Models\Financiero\Fondo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -245,10 +247,28 @@ class MiCondominioController extends Controller
             ->whereIn('apartamento_id', $apartamentoIds)
             ->where('estatus', 'P')
             ->with('apartamento.edificio')
+            ->orderBy('periodo')
             ->get();
 
         if ($deudas->isEmpty()) {
             return redirect()->back()->with('error', 'No se encontraron deudas validas para pagar.');
+        }
+
+        // Validate consecutive order from oldest
+        $allDeudas = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
+            ->where('estatus', 'P')
+            ->orderBy('periodo')
+            ->pluck('id')
+            ->toArray();
+
+        $selectedIds = $deudas->pluck('id')->toArray();
+        $selecting = true;
+        foreach ($allDeudas as $deudaId) {
+            if ($selecting && !in_array($deudaId, $selectedIds)) {
+                $selecting = false;
+            } elseif (!$selecting && in_array($deudaId, $selectedIds)) {
+                return redirect()->back()->with('error', 'Debe pagar las deudas en orden cronologico, desde la mas antigua.');
+            }
         }
 
         $montoTotal = $deudas->sum('saldo');
@@ -291,6 +311,45 @@ class MiCondominioController extends Controller
         }
     }
 
+    public function verRecibo($factAptoId)
+    {
+        $propietario = $this->getPropietario();
+        if (!$propietario) return view('propietario.sin-acceso');
+
+        $apartamentoIds = $this->getApartamentos($propietario)->pluck('id');
+
+        $factApto = CondMovFactApto::where('id', $factAptoId)
+            ->whereIn('apartamento_id', $apartamentoIds)
+            ->with(['edificio.compania', 'apartamento'])
+            ->firstOrFail();
+
+        // Get building-level data for same edificio and period
+        $factEdif = CondMovFactEdif::where('edificio_id', $factApto->edificio_id)
+            ->where('periodo', $factApto->periodo)
+            ->first();
+
+        // Get expense breakdown (relacion de cobro) for same edificio and period
+        $gastos = CondMovPrefact::where('edificio_id', $factApto->edificio_id)
+            ->where('periodo', $factApto->periodo)
+            ->where(function ($q) use ($factApto) {
+                $q->whereNull('apartamento_id')
+                  ->orWhere('apartamento_id', $factApto->apartamento_id)
+                  ->orWhere('num_apto_legacy', '0');
+            })
+            ->orderBy('cod_gasto_legacy')
+            ->get();
+
+        // Get payment status from cond_pago_aptos
+        $pagoApto = CondPagoApto::where('apartamento_id', $factApto->apartamento_id)
+            ->where('periodo', $factApto->periodo)
+            ->with('pago')
+            ->first();
+
+        $gastoCatalog = $this->buildGastoCatalog($gastos);
+
+        return view('propietario.ver-recibo', compact('propietario', 'factApto', 'factEdif', 'gastos', 'pagoApto', 'gastoCatalog'));
+    }
+
     public function recibosEdificio()
     {
         $propietario = $this->getPropietario();
@@ -305,6 +364,69 @@ class MiCondominioController extends Controller
             ->paginate(15);
 
         return view('propietario.recibos-edificio', compact('propietario', 'recibos', 'apartamentos'));
+    }
+
+    public function verReciboEdificio($factEdifId)
+    {
+        $propietario = $this->getPropietario();
+        if (!$propietario) return view('propietario.sin-acceso');
+
+        $edificioIds = $this->getApartamentos($propietario)->pluck('edificio_id')->unique();
+
+        $factEdif = CondMovFactEdif::where('id', $factEdifId)
+            ->whereIn('edificio_id', $edificioIds)
+            ->with(['edificio.compania'])
+            ->firstOrFail();
+
+        $gastosRaw = CondMovPrefact::where('edificio_id', $factEdif->edificio_id)
+            ->where('periodo', $factEdif->periodo)
+            ->orderBy('cod_gasto_legacy')
+            ->get();
+
+        $gastoCatalog = $this->buildGastoCatalog($gastosRaw);
+
+        // Group by cod_gasto_legacy and sum montos
+        $gastos = $gastosRaw->groupBy('cod_gasto_legacy')->map(function ($rows, $cod) use ($gastoCatalog) {
+            $first = $rows->first();
+            $desc  = $first->concepto;
+            if (!$desc || $desc == $cod) {
+                $desc = $gastoCatalog[$cod . '|' . $first->tipo_gasto_legacy]
+                     ?? $gastoCatalog[$cod]
+                     ?? $first->ext_descripcion
+                     ?? $cod;
+            }
+            return [
+                'cod_gasto_legacy' => $cod,
+                'descripcion'      => $desc,
+                'ampl_concepto'    => $rows->firstWhere('ampl_concepto', '!=', null)?->ampl_concepto ?? '',
+                'monto'            => $rows->sum('monto'),
+            ];
+        })->sortBy('cod_gasto_legacy')->values();
+
+        return view('propietario.ver-recibo-edificio', compact('propietario', 'factEdif', 'gastos'));
+    }
+
+    /**
+     * Build a description catalog from cond_gastos keyed by "cod_gasto|tipo_gasto".
+     * Falls back to tipo_gasto=0 if exact match not found.
+     */
+    private function buildGastoCatalog($prefactRows): array
+    {
+        $codigos = $prefactRows->pluck('cod_gasto_legacy')->unique()->filter()->values();
+        if ($codigos->isEmpty()) return [];
+
+        $catalog = [];
+        CondGasto::whereIn('cod_gasto', $codigos)
+            ->get(['cod_gasto', 'tipo_gasto', 'descripcion'])
+            ->each(function ($g) use (&$catalog) {
+                $catalog[$g->cod_gasto . '|' . $g->tipo_gasto] = $g->descripcion;
+                // Also store base key (tipo=0) for fallback
+                if (!isset($catalog[$g->cod_gasto]) || $g->tipo_gasto == '0') {
+                    $catalog[$g->cod_gasto] = $g->descripcion;
+                }
+            });
+
+        return $catalog;
     }
 
     public function recibosApartamento()

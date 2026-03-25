@@ -84,6 +84,10 @@ Route::prefix('cobranza')->name('cobranza.')->group(function () {
     Route::post('/pago', [CobranzaController::class, 'registrarPago'])->name('registrar-pago');
     Route::get('/morosos', [CobranzaController::class, 'morosos'])->name('morosos');
     Route::get('/judicial', [CobranzaController::class, 'gestionJudicial'])->name('judicial');
+    Route::get('/pagos-pendientes', [CobranzaController::class, 'pagosPendientes'])->name('pagos-pendientes');
+    Route::post('/pagos-pendientes/{pago}/aprobar', [CobranzaController::class, 'aprobarPago'])->name('aprobar-pago');
+    Route::post('/pagos-pendientes/{pago}/rechazar', [CobranzaController::class, 'rechazarPago'])->name('rechazar-pago');
+    Route::get('/pagos-pendientes/{pago}', [CobranzaController::class, 'verPago'])->name('ver-pago');
 });
 
 // Envio de Recibos

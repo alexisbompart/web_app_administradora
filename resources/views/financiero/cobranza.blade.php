@@ -6,6 +6,13 @@
                 <p class="text-sm text-slate_custom-400 mt-1">Gestión de deudas y cobranza de apartamentos</p>
             </div>
             <div class="flex items-center gap-3">
+                @php $pagosPendCount = \App\Models\Financiero\CondPago::where('estatus','P')->count(); @endphp
+                <a href="{{ route('financiero.cobranza.pagos-pendientes') }}" class="btn-primary relative">
+                    <i class="fas fa-clock mr-2"></i>Pagos Pendientes
+                    @if($pagosPendCount > 0)
+                    <span class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">{{ $pagosPendCount }}</span>
+                    @endif
+                </a>
                 <a href="{{ route('financiero.cobranza.morosos') }}" class="btn-secondary">
                     <i class="fas fa-exclamation-triangle mr-2"></i>Morosos
                 </a>
@@ -115,7 +122,17 @@
     </div>
 
     <!-- Stat Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-6 mb-8">
+        <a href="{{ route('financiero.cobranza.pagos-pendientes') }}" class="stat-card hover:border-amber-400 transition cursor-pointer">
+            <div class="flex items-center justify-between">
+                <div class="stat-label">Pagos por Aprobar</div>
+                <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-clock text-amber-600"></i>
+                </div>
+            </div>
+            <div class="stat-value text-amber-600">{{ $pagosPendCount }}</div>
+            <p class="text-xs text-slate_custom-400 mt-1">Registrados por propietarios</p>
+        </a>
         <div class="stat-card">
             <div class="flex items-center justify-between">
                 <div class="stat-label">Total Deudas Pendientes</div>
