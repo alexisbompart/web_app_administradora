@@ -403,6 +403,30 @@
                         </div>
                     </a>
                 </div>
+
+                <!-- Afiliacion CTA -->
+                <div class="mt-6 fade-in">
+                    <a href="{{ route('afiliacion.publica') }}"
+                       class="action-card group relative bg-gradient-to-r from-navy-800 to-burgundy-800 rounded-3xl overflow-hidden flex items-stretch">
+                        <div class="p-8 flex flex-col sm:flex-row items-center gap-6 flex-1">
+                            <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-white/20 group-hover:scale-110 transition-all duration-400">
+                                <i class="fas fa-user-plus text-2xl text-white"></i>
+                            </div>
+                            <div class="flex-1 text-center sm:text-left">
+                                <h3 class="text-lg font-heading font-bold text-white mb-1">
+                                    Solicite su Afiliacion al Pago Integral
+                                </h3>
+                                <p class="text-sm text-white/70 leading-relaxed">
+                                    Afiliese a nuestro servicio de debito automatico y olvide las colas. Complete el formulario en linea y un asesor le contactara.
+                                </p>
+                            </div>
+                            <span class="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-white text-navy-800 text-xs font-heading font-bold rounded-2xl group-hover:bg-burgundy-800 group-hover:text-white transition-all duration-300 uppercase tracking-wide shadow-lg">
+                                Afiliarme Ahora
+                                <i class="fas fa-arrow-right text-xs group-hover:translate-x-1 transition-transform duration-300"></i>
+                            </span>
+                        </div>
+                    </a>
+                </div>
             </div>
         </section>
         @endif

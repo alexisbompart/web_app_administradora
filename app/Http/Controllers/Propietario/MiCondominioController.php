@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Propietario;
 use App\Http\Controllers\Controller;
 use App\Models\Condominio\Apartamento;
 use App\Models\Condominio\Propietario;
+use App\Models\Condominio\Afilapto;
+use App\Models\Condominio\Afilpagointegral;
 use App\Models\Financiero\Banco;
 use App\Models\Financiero\CondDeudaApto;
 use App\Models\Financiero\CondMovFactApto;
@@ -14,6 +16,8 @@ use App\Models\Financiero\CondPago;
 use App\Models\Financiero\CondPagoApto;
 use App\Models\Financiero\CondGasto;
 use App\Models\Financiero\Fondo;
+use App\Models\Financiero\PagoIntegral;
+use App\Models\Financiero\PagoIntegralDetalle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -443,5 +447,129 @@ class MiCondominioController extends Controller
             ->paginate(15);
 
         return view('propietario.recibos-apartamento', compact('propietario', 'recibos', 'apartamentos'));
+    }
+
+    public function pagoIntegralForm()
+    {
+        $propietario = $this->getPropietario();
+        if (!$propietario) return view('propietario.sin-acceso');
+
+        $apartamentos = $this->getApartamentos($propietario);
+        $apartamentoIds = $apartamentos->pluck('id');
+
+        // Find afiliados linked to the propietario's apartments
+        $afilAptoIds = Afilapto::whereIn('apartamento_id', $apartamentoIds)
+            ->where('estatus_afil', 'A')->pluck('id');
+
+        $afiliado = Afilpagointegral::whereIn('afilapto_id', $afilAptoIds)
+            ->where('estatus', 'A')
+            ->with('afilapto.apartamento.edificio')
+            ->first();
+
+        $deudas = collect();
+        if ($afiliado && $afiliado->afilapto) {
+            $deudas = CondDeudaApto::where('apartamento_id', $afiliado->afilapto->apartamento_id)
+                ->where('estatus', 'P')
+                ->orderBy('periodo')
+                ->get();
+        }
+
+        // Pagos integrales previos del propietario
+        $pagosIntegrales = collect();
+        if ($afiliado) {
+            $pagosIntegrales = PagoIntegral::where('afilpagointegral_id', $afiliado->id)
+                ->with('pagoIntegralDetalles')
+                ->latest('fecha')
+                ->take(10)
+                ->get();
+        }
+
+        return view('propietario.pago-integral', compact(
+            'propietario', 'apartamentos', 'afiliado', 'deudas', 'pagosIntegrales'
+        ));
+    }
+
+    public function pagoIntegralStore(Request $request)
+    {
+        $propietario = $this->getPropietario();
+        if (!$propietario) return view('propietario.sin-acceso');
+
+        $request->validate([
+            'afiliado_id' => 'required|exists:afilpagointegral,id',
+            'deudas'      => 'required|array|min:1',
+            'deudas.*'    => 'exists:cond_deudas_apto,id',
+        ]);
+
+        $apartamentos = $this->getApartamentos($propietario);
+        $apartamentoIds = $apartamentos->pluck('id');
+
+        // Verify the afiliado belongs to this propietario
+        $afiliado = Afilpagointegral::with('afilapto.apartamento')
+            ->where('id', $request->afiliado_id)
+            ->where('estatus', 'A')
+            ->firstOrFail();
+
+        if (!$afiliado->afilapto || !$apartamentoIds->contains($afiliado->afilapto->apartamento_id)) {
+            return back()->with('error', 'El afiliado no corresponde a sus apartamentos.');
+        }
+
+        $apartamentoId = $afiliado->afilapto->apartamento_id;
+
+        // Get all pending debts for validation
+        $allDeudas = CondDeudaApto::where('apartamento_id', $apartamentoId)
+            ->where('estatus', 'P')
+            ->orderBy('periodo')
+            ->get();
+
+        $selectedIds = collect($request->deudas)->map(fn($id) => (int) $id);
+
+        // Validate consecutive from oldest
+        $selecting = true;
+        foreach ($allDeudas as $deuda) {
+            if ($selecting && !$selectedIds->contains($deuda->id)) {
+                $selecting = false;
+            } elseif (!$selecting && $selectedIds->contains($deuda->id)) {
+                return back()->with('error', 'Debe seleccionar deudas consecutivas desde la mas antigua.');
+            }
+        }
+
+        $deudas = CondDeudaApto::whereIn('id', $selectedIds->toArray())
+            ->where('apartamento_id', $apartamentoId)
+            ->where('estatus', 'P')
+            ->orderBy('periodo')
+            ->get();
+
+        if ($deudas->isEmpty()) {
+            return back()->with('error', 'No se encontraron deudas validas.');
+        }
+
+        $total = $deudas->sum('saldo');
+
+        $pago = DB::transaction(function () use ($afiliado, $deudas, $total) {
+            $pago = PagoIntegral::create([
+                'afilpagointegral_id' => $afiliado->id,
+                'compania_id'         => $afiliado->afilapto->compania_id ?? null,
+                'fecha'               => now(),
+                'monto_total'         => $total,
+                'forma_pago'          => 'pago_integral',
+                'referencia'          => null,
+                'estatus'             => 'P',
+                'observaciones'       => 'Registrado por propietario desde portal web.',
+            ]);
+
+            foreach ($deudas as $deuda) {
+                PagoIntegralDetalle::create([
+                    'pagointegral_id' => $pago->id,
+                    'periodo'         => $deuda->periodo,
+                    'monto'           => $deuda->saldo,
+                    'concepto'        => 'Pago Integral - ' . $deuda->periodo,
+                ]);
+            }
+
+            return $pago;
+        });
+
+        return redirect()->route('mi-condominio.pago-integral')
+            ->with('success', 'Pago integral registrado por ' . number_format($total, 2, ',', '.') . ' Bs. Queda pendiente de aprobacion por el administrador.');
     }
 }

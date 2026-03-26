@@ -66,4 +66,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/admin/welcome/settings', [WelcomeContentController::class, 'updateSettings'])->name('admin.welcome.settings.update');
 });
 
+use App\Http\Controllers\PagoIntegral\AfiliacionPublicaController;
+
+Route::get('/afiliacion', [AfiliacionPublicaController::class, 'show'])->name('afiliacion.publica');
+Route::post('/afiliacion', [AfiliacionPublicaController::class, 'store'])->name('afiliacion.publica.store');
+
 require __DIR__.'/auth.php';

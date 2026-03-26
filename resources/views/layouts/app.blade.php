@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Administracion Condominio') }}</title>
+        <title>@hasSection('title')@yield('title') — @endif{{ config('app.name', 'Administracion Condominio') }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -31,7 +31,13 @@
                 @include('layouts.navigation')
 
                 <!-- Page Heading -->
-                @if (isset($header))
+                @hasSection('header')
+                    <header class="bg-white border-b border-slate_custom-200">
+                        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                            @yield('header')
+                        </div>
+                    </header>
+                @elseif(isset($header))
                     <header class="bg-white border-b border-slate_custom-200">
                         <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
                             {{ $header }}
@@ -41,7 +47,11 @@
 
                 <!-- Page Content -->
                 <main class="flex-1 p-4 sm:p-6 lg:p-8">
-                    {{ $slot }}
+                    @hasSection('content')
+                        @yield('content')
+                    @else
+                        {{ $slot ?? '' }}
+                    @endif
                 </main>
 
                 <!-- Footer -->

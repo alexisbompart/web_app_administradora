@@ -16,7 +16,6 @@ Route::get('/estadisticas', [MiCondominioController::class, 'estadisticas'])->na
 Route::get('/registrar-pago', [MiCondominioController::class, 'registrarPagoForm'])->name('registrar-pago');
 Route::post('/registrar-pago', [MiCondominioController::class, 'registrarPago'])->name('registrar-pago.store');
 
-// Pago Integral para cliente
-Route::get('/pago-integral', [\App\Http\Controllers\PagoIntegral\PagoIntegralController::class, 'consultarSaldo'])->name('pago-integral');
-Route::post('/pago-integral/procesar', [\App\Http\Controllers\PagoIntegral\PagoIntegralController::class, 'procesarPago'])->name('pago-integral.procesar');
-Route::get('/pago-integral/comprobante/{pago}', [\App\Http\Controllers\PagoIntegral\PagoIntegralController::class, 'comprobante'])->name('pago-integral.comprobante');
+// Pago Integral para cliente-propietario
+Route::get('/pago-integral', [MiCondominioController::class, 'pagoIntegralForm'])->name('pago-integral');
+Route::post('/pago-integral', [MiCondominioController::class, 'pagoIntegralStore'])->name('pago-integral.store');

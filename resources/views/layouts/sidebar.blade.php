@@ -200,6 +200,14 @@
         </a>
         @endcan
 
+        @hasanyrole('super-admin|administrador')
+        <a href="{{ route('financiero.pago-integral.afiliaciones') }}"
+           class="sidebar-link {{ request()->routeIs('financiero.pago-integral.afiliaciones*') ? 'active' : '' }}">
+            <i class="fas fa-user-check w-5 text-center"></i>
+            <span x-show="sidebarOpen" x-transition>Afiliaciones</span>
+        </a>
+        @endhasanyrole
+
         @can('cajamatic.ver')
         <a href="{{ route('financiero.cajamatic.index') }}"
            class="sidebar-link {{ request()->routeIs('financiero.cajamatic.*') ? 'active' : '' }}">
@@ -400,6 +408,9 @@
         @can('pago-integral.ver')
         <a href="{{ route('financiero.pago-integral.index') }}" class="sidebar-link {{ request()->routeIs('financiero.pago-integral.*') ? 'active' : '' }}"><i class="fas fa-credit-card w-5 text-center"></i><span>Pago Integral</span></a>
         @endcan
+        @hasanyrole('super-admin|administrador')
+        <a href="{{ route('financiero.pago-integral.afiliaciones') }}" class="sidebar-link {{ request()->routeIs('financiero.pago-integral.afiliaciones*') ? 'active' : '' }}"><i class="fas fa-user-check w-5 text-center"></i><span>Afiliaciones</span></a>
+        @endhasanyrole
         @can('cajamatic.ver')
         <a href="{{ route('financiero.cajamatic.index') }}" class="sidebar-link {{ request()->routeIs('financiero.cajamatic.*') ? 'active' : '' }}"><i class="fas fa-cash-register w-5 text-center"></i><span>CajaMatic</span></a>
         @endcan

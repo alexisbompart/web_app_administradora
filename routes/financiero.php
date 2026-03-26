@@ -102,9 +102,20 @@ Route::resource('conciliaciones', ConcBancariaController::class);
 // Pago Integral
 Route::prefix('pago-integral')->name('pago-integral.')->group(function () {
     Route::get('/', [PagoIntegralController::class, 'index'])->name('index');
+    Route::get('/aprobacion', [PagoIntegralController::class, 'aprobacion'])->name('aprobacion');
+    Route::get('/generar-archivo', [PagoIntegralController::class, 'generarArchivoForm'])->name('generar-archivo');
+    Route::post('/generar-archivo', [PagoIntegralController::class, 'generarArchivo'])->name('generar-archivo.post');
+    Route::get('/afiliaciones', [PagoIntegralController::class, 'afiliaciones'])->name('afiliaciones');
+    Route::get('/afiliaciones/crear', [PagoIntegralController::class, 'afiliacionForm'])->name('afiliaciones.crear');
+    Route::post('/afiliaciones', [PagoIntegralController::class, 'storeAfiliacion'])->name('afiliaciones.store');
+    Route::get('/afiliaciones/{afiliacion}/editar', [PagoIntegralController::class, 'editAfiliacion'])->name('afiliaciones.edit');
+    Route::put('/afiliaciones/{afiliacion}', [PagoIntegralController::class, 'updateAfiliacion'])->name('afiliaciones.update');
+    Route::patch('/afiliaciones/{afiliacion}/desafiliar', [PagoIntegralController::class, 'desafiliar'])->name('afiliaciones.desafiliar');
     Route::get('/saldo', [PagoIntegralController::class, 'consultarSaldo'])->name('consultar-saldo');
     Route::post('/procesar', [PagoIntegralController::class, 'procesarPago'])->name('procesar');
     Route::get('/comprobante/{pago}', [PagoIntegralController::class, 'comprobante'])->name('comprobante');
+    Route::post('/{pago}/aprobar', [PagoIntegralController::class, 'aprobarPago'])->name('aprobar');
+    Route::post('/{pago}/rechazar', [PagoIntegralController::class, 'rechazarPago'])->name('rechazar');
 });
 
 // CajaMatic
