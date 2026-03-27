@@ -141,15 +141,17 @@
                     $orden = [
                         ['num' => 1, 'nombre' => 'Edificios', 'icon' => 'fas fa-city'],
                         ['num' => 2, 'nombre' => 'Apartamentos', 'icon' => 'fas fa-door-open'],
-                        ['num' => 3, 'nombre' => 'Gastos', 'icon' => 'fas fa-receipt'],
-                        ['num' => 4, 'nombre' => 'Deudas', 'icon' => 'fas fa-file-invoice-dollar'],
-                        ['num' => 5, 'nombre' => 'Descuentos', 'icon' => 'fas fa-percentage'],
-                        ['num' => 6, 'nombre' => 'Abonos', 'icon' => 'fas fa-money-bill-wave'],
-                        ['num' => 7, 'nombre' => 'Pagos', 'icon' => 'fas fa-money-check-alt'],
-                        ['num' => 8, 'nombre' => 'Pagos x Apto', 'icon' => 'fas fa-credit-card'],
-                        ['num' => 9, 'nombre' => 'Mov. Pre-fact', 'icon' => 'fas fa-exchange-alt'],
-                        ['num' => 10, 'nombre' => 'Fact. x Apto', 'icon' => 'fas fa-file-invoice'],
-                        ['num' => 11, 'nombre' => 'Fact. x Edificio', 'icon' => 'fas fa-building'],
+                        ['num' => 3, 'nombre' => 'Afil. Pago Integral', 'icon' => 'fas fa-hand-holding-usd'],
+                        ['num' => 4, 'nombre' => 'Afil. Apto', 'icon' => 'fas fa-link'],
+                        ['num' => 5, 'nombre' => 'Gastos', 'icon' => 'fas fa-receipt'],
+                        ['num' => 6, 'nombre' => 'Deudas', 'icon' => 'fas fa-file-invoice-dollar'],
+                        ['num' => 7, 'nombre' => 'Descuentos', 'icon' => 'fas fa-percentage'],
+                        ['num' => 8, 'nombre' => 'Abonos', 'icon' => 'fas fa-money-bill-wave'],
+                        ['num' => 9, 'nombre' => 'Pagos', 'icon' => 'fas fa-money-check-alt'],
+                        ['num' => 10, 'nombre' => 'Pagos x Apto', 'icon' => 'fas fa-credit-card'],
+                        ['num' => 11, 'nombre' => 'Mov. Pre-fact', 'icon' => 'fas fa-exchange-alt'],
+                        ['num' => 12, 'nombre' => 'Fact. x Apto', 'icon' => 'fas fa-file-invoice'],
+                        ['num' => 13, 'nombre' => 'Fact. x Edificio', 'icon' => 'fas fa-building'],
                     ];
                 @endphp
                 @foreach($orden as $paso)

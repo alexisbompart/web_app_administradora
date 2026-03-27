@@ -4,6 +4,10 @@ use App\Http\Controllers\Condominio\CompaniaController;
 use App\Http\Controllers\Condominio\EdificioController;
 use App\Http\Controllers\Condominio\ApartamentoController;
 use App\Http\Controllers\Condominio\ApartamentoImportController;
+use App\Http\Controllers\Condominio\AfilAptoController;
+use App\Http\Controllers\Condominio\AfilAptoImportController;
+use App\Http\Controllers\Condominio\AfilPagointegralController;
+use App\Http\Controllers\Condominio\AfilPagointegralImportController;
 use App\Http\Controllers\Condominio\EdificioImportController;
 use App\Http\Controllers\Condominio\PropietarioController;
 use Illuminate\Support\Facades\Route;
@@ -24,3 +28,17 @@ Route::post('apartamentos/importar/execute', [ApartamentoImportController::class
 
 Route::resource('apartamentos', ApartamentoController::class);
 Route::resource('propietarios', PropietarioController::class)->parameters(['propietarios' => 'propietario']);
+
+// Afilapto: import routes BEFORE resource
+Route::get('afilapto/importar', [AfilAptoImportController::class, 'showForm'])->name('afilapto.importar');
+Route::post('afilapto/importar/preview', [AfilAptoImportController::class, 'preview'])->name('afilapto.importar.preview');
+Route::post('afilapto/importar/execute', [AfilAptoImportController::class, 'execute'])->name('afilapto.importar.execute');
+
+Route::resource('afilapto', AfilAptoController::class)->except(['show']);
+
+// Afilpagointegral: import routes BEFORE resource
+Route::get('afilpagointegral/importar', [AfilPagointegralImportController::class, 'showForm'])->name('afilpagointegral.importar');
+Route::post('afilpagointegral/importar/preview', [AfilPagointegralImportController::class, 'preview'])->name('afilpagointegral.importar.preview');
+Route::post('afilpagointegral/importar/execute', [AfilPagointegralImportController::class, 'execute'])->name('afilpagointegral.importar.execute');
+
+Route::resource('afilpagointegral', AfilPagointegralController::class)->except(['show']);

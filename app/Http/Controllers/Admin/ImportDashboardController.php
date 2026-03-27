@@ -109,6 +109,33 @@ class ImportDashboardController extends Controller
                 'ruta_listado' => 'financiero.fact-edif.index',
                 'tipo' => 'Carga Completa',
             ],
+            [
+                'nombre' => 'Tasas BCV',
+                'tabla' => 'cond_tasas_bcv',
+                'icono' => 'fas fa-dollar-sign',
+                'color' => 'yellow',
+                'ruta_import' => 'financiero.tasabcv.importar',
+                'ruta_listado' => 'financiero.tasabcv.index',
+                'tipo' => 'Incremental',
+            ],
+            [
+                'nombre' => 'Afil. Pago Integral',
+                'tabla' => 'afilpagointegral',
+                'icono' => 'fas fa-hand-holding-usd',
+                'color' => 'emerald',
+                'ruta_import' => 'condominio.afilpagointegral.importar',
+                'ruta_listado' => null,
+                'tipo' => 'Incremental',
+            ],
+            [
+                'nombre' => 'Afiliaciones Apto',
+                'tabla' => 'afilapto',
+                'icono' => 'fas fa-link',
+                'color' => 'violet',
+                'ruta_import' => 'condominio.afilapto.importar',
+                'ruta_listado' => null,
+                'tipo' => 'Incremental',
+            ],
         ];
 
         foreach ($tables as &$t) {

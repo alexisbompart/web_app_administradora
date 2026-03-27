@@ -696,7 +696,7 @@
                                         <input type="hidden" name="settings[{{ $setting->clave }}]" value="0">
                                         <input type="checkbox" name="settings[{{ $setting->clave }}]" value="1" {{ $setting->valor === '1' ? 'checked' : '' }}
                                                class="sr-only peer">
-                                        <div class="w-11 h-6 bg-slate_custom-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-green-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" onclick="this.previousElementSibling.click()"></div>
+                                        <div class="w-11 h-6 bg-slate_custom-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-green-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                                     </div>
                                 </label>
                                 @elseif($setting->tipo === 'textarea')

@@ -15,6 +15,8 @@ use App\Http\Controllers\Financiero\MovFactAptoImportController;
 use App\Http\Controllers\Financiero\MovFactEdifImportController;
 use App\Http\Controllers\Financiero\PagoAptoImportController;
 use App\Http\Controllers\Financiero\PagoImportController;
+use App\Http\Controllers\Financiero\TasaBcvImportController;
+use App\Http\Controllers\Financiero\TasaBcvController;
 use App\Http\Controllers\CajaMatic\CajaMaticController;
 use Illuminate\Support\Facades\Route;
 
@@ -62,6 +64,14 @@ Route::post('movfactapto/importar/execute', [MovFactAptoImportController::class,
 Route::get('movprefact/importar', [MovPrefactImportController::class, 'showForm'])->name('movprefact.importar');
 Route::post('movprefact/importar/preview', [MovPrefactImportController::class, 'preview'])->name('movprefact.importar.preview');
 Route::post('movprefact/importar/execute', [MovPrefactImportController::class, 'execute'])->name('movprefact.importar.execute');
+
+// Importar Tasas BCV
+Route::get('tasabcv/importar', [TasaBcvImportController::class, 'showForm'])->name('tasabcv.importar');
+Route::post('tasabcv/importar/preview', [TasaBcvImportController::class, 'preview'])->name('tasabcv.importar.preview');
+Route::post('tasabcv/importar/execute', [TasaBcvImportController::class, 'execute'])->name('tasabcv.importar.execute');
+
+// Tasas BCV CRUD
+Route::resource('tasabcv', TasaBcvController::class)->except(['show']);
 
 // Data Views (listados)
 Route::get('deudas', [DataViewController::class, 'deudas'])->name('deudas.index');

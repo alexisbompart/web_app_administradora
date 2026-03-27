@@ -19,7 +19,7 @@ class CondPago extends Model
     protected $fillable = [
         'compania_id', 'edificio_id', 'fecha_pago', 'numero_recibo',
         'forma_pago', 'banco_id', 'numero_referencia', 'monto_total',
-        'monto_recibido', 'observaciones', 'estatus', 'registrado_por',
+        'monto_recibido', 'tasa_bcv_pago', 'observaciones', 'estatus', 'registrado_por',
         // Legacy
         'cajero', 'cod_motivo', 'compania_legacy', 'comprobante_contable',
         'fecha_contable', 'fecha_apertura', 'id_pago_legacy', 'monto_num',
@@ -34,7 +34,7 @@ class CondPago extends Model
 
     protected $casts = [
         'fecha_pago' => 'date', 'fecha_contable' => 'date', 'fecha_apertura' => 'date',
-        'monto_total' => 'decimal:2', 'monto_recibido' => 'decimal:2',
+        'monto_total' => 'decimal:2', 'monto_recibido' => 'decimal:2', 'tasa_bcv_pago' => 'decimal:6',
         'legacy_created_at' => 'datetime', 'legacy_updated_at' => 'datetime',
     ];
 

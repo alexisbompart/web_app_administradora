@@ -106,6 +106,11 @@
             <i class="fas fa-users w-5 text-center"></i>
             <span x-show="sidebarOpen" x-transition>Propietarios</span>
         </a>
+        <a href="{{ route('condominio.afilapto.index') }}"
+           class="sidebar-link {{ request()->routeIs('condominio.afilapto.*') || request()->routeIs('condominio.afilpagointegral.*') ? 'active' : '' }}">
+            <i class="fas fa-link w-5 text-center"></i>
+            <span x-show="sidebarOpen" x-transition>Afiliaciones</span>
+        </a>
         @endcan
         @endunless
 
@@ -191,6 +196,12 @@
             <span x-show="sidebarOpen" x-transition>Conciliacion</span>
         </a>
         @endcan
+
+        <a href="{{ route('financiero.tasabcv.index') }}"
+           class="sidebar-link {{ request()->routeIs('financiero.tasabcv.*') ? 'active' : '' }}">
+            <i class="fas fa-dollar-sign w-5 text-center"></i>
+            <span x-show="sidebarOpen" x-transition>Tasas BCV</span>
+        </a>
 
         @can('pago-integral.ver')
         <a href="{{ route('financiero.pago-integral.index') }}"
@@ -366,6 +377,7 @@
         <a href="{{ route('condominio.edificios.index') }}" class="sidebar-link {{ request()->routeIs('condominio.edificios.*') ? 'active' : '' }}"><i class="fas fa-city w-5 text-center"></i><span>Edificios</span></a>
         <a href="{{ route('condominio.apartamentos.index') }}" class="sidebar-link {{ request()->routeIs('condominio.apartamentos.*') ? 'active' : '' }}"><i class="fas fa-door-open w-5 text-center"></i><span>Apartamentos</span></a>
         <a href="{{ route('condominio.propietarios.index') }}" class="sidebar-link {{ request()->routeIs('condominio.propietarios.*') ? 'active' : '' }}"><i class="fas fa-users w-5 text-center"></i><span>Propietarios</span></a>
+        <a href="{{ route('condominio.afilapto.index') }}" class="sidebar-link {{ request()->routeIs('condominio.afilapto.*') || request()->routeIs('condominio.afilpagointegral.*') ? 'active' : '' }}"><i class="fas fa-link w-5 text-center"></i><span>Afiliaciones</span></a>
         @endcan
         @endunless
 
@@ -405,6 +417,7 @@
         @can('fondos.conciliar')
         <a href="{{ route('financiero.conciliaciones.index') }}" class="sidebar-link {{ request()->routeIs('financiero.conciliaciones.*') ? 'active' : '' }}"><i class="fas fa-balance-scale w-5 text-center"></i><span>Conciliacion</span></a>
         @endcan
+        <a href="{{ route('financiero.tasabcv.index') }}" class="sidebar-link {{ request()->routeIs('financiero.tasabcv.*') ? 'active' : '' }}"><i class="fas fa-dollar-sign w-5 text-center"></i><span>Tasas BCV</span></a>
         @can('pago-integral.ver')
         <a href="{{ route('financiero.pago-integral.index') }}" class="sidebar-link {{ request()->routeIs('financiero.pago-integral.*') ? 'active' : '' }}"><i class="fas fa-credit-card w-5 text-center"></i><span>Pago Integral</span></a>
         @endcan

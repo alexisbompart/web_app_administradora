@@ -56,6 +56,7 @@
                             <th>Forma de Pago</th>
                             <th>Referencia</th>
                             <th>Monto</th>
+                            <th>Estatus</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -76,15 +77,31 @@
                                     {{ number_format($pago->monto_aplicado, 2, ',', '.') }} Bs
                                 </td>
                                 <td>
-                                    <a href="{{ route('mi-condominio.recibo', $pago->id) }}"
-                                       class="btn-primary text-xs px-3 py-1.5">
-                                        <i class="fas fa-file-pdf mr-1"></i>Ver Recibo
-                                    </a>
+                                    @php $estatus = $pago->pago->estatus ?? 'P'; @endphp
+                                    @if($estatus === 'A')
+                                        <span class="badge-success"><i class="fas fa-check-circle mr-1"></i>Aprobado</span>
+                                    @elseif($estatus === 'R')
+                                        <span class="badge-danger"><i class="fas fa-times-circle mr-1"></i>Rechazado</span>
+                                    @elseif($estatus === 'N')
+                                        <span class="badge-warning"><i class="fas fa-ban mr-1"></i>Anulado</span>
+                                    @else
+                                        <span class="badge-info"><i class="fas fa-clock mr-1"></i>Pendiente</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if(($pago->pago->estatus ?? 'P') === 'A')
+                                        <a href="{{ route('mi-condominio.recibo', $pago->id) }}"
+                                           class="btn-primary text-xs px-3 py-1.5">
+                                            <i class="fas fa-file-pdf mr-1"></i>Ver Recibo
+                                        </a>
+                                    @else
+                                        <span class="text-xs text-slate_custom-400">No disponible</span>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center text-slate_custom-400 py-8">
+                                <td colspan="9" class="text-center text-slate_custom-400 py-8">
                                     <i class="fas fa-inbox text-3xl mb-2 block"></i>
                                     No hay pagos registrados
                                 </td>

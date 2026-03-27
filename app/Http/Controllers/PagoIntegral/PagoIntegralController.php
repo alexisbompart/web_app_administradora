@@ -22,11 +22,15 @@ class PagoIntegralController extends Controller
     public function index()
     {
         $pendientes = PagoIntegral::where('estatus', 'P')
-            ->with(['afilpagointegral.afilapto.apartamento.edificio', 'compania', 'pagoIntegralDetalles'])
+            ->with(['afilpagointegral.banco', 'afilpagointegral.afilapto.apartamento.edificio', 'compania', 'pagoIntegralDetalles'])
             ->latest('fecha')->get();
 
+        // Agrupar pendientes por banco
+        $pendientesPorBanco = $pendientes->groupBy(fn($p) => $p->afilpagointegral?->banco_id ?? 0);
+        $bancosPendientes = Banco::whereIn('id', $pendientesPorBanco->keys()->filter())->orderBy('nombre')->get()->keyBy('id');
+
         $procesados = PagoIntegral::whereIn('estatus', ['A', 'R'])
-            ->with(['afilpagointegral.afilapto.apartamento.edificio', 'compania', 'pagoIntegralDetalles'])
+            ->with(['afilpagointegral.banco', 'afilpagointegral.afilapto.apartamento.edificio', 'compania', 'pagoIntegralDetalles'])
             ->latest('fecha')->paginate(15);
 
         $totalPendiente = PagoIntegral::where('estatus', 'P')->sum('monto_total');
@@ -35,7 +39,7 @@ class PagoIntegralController extends Controller
         $countRechazados = PagoIntegral::where('estatus', 'R')->count();
 
         return view('financiero.pago-integral', compact(
-            'pendientes', 'procesados', 'totalPendiente', 'countPendiente', 'countAprobados', 'countRechazados'
+            'pendientesPorBanco', 'bancosPendientes', 'procesados', 'totalPendiente', 'countPendiente', 'countAprobados', 'countRechazados'
         ));
     }
 
@@ -198,7 +202,7 @@ class PagoIntegralController extends Controller
                         'estatus' => 'C',
                         'monto_pagado' => DB::raw('monto_original'),
                         'saldo' => 0,
-                        'fecha_pago' => $pago->fecha,
+                        'fecha_pag' => $pago->fecha,
                     ]);
             }
 
@@ -312,7 +316,7 @@ class PagoIntegralController extends Controller
             $total       = $pagos->sum('monto_total');
             $totalCents  = str_pad((int) round($total * 100), 12, '0', STR_PAD_LEFT);
             $count       = str_pad($pagos->count(), 7, '0', STR_PAD_LEFT);
-            $rifCompania = str_pad('J0001426434', 11);
+            $rifCompania = str_pad('J0406456900', 11);
             $header      = str_pad(
                 '1' . str_pad('BAMRVECA', 12) . 'C' . '1' . now()->format('Ymd') . now()->format('Hi') . '00' . $count . 'DOMIC' . $rifCompania . $totalCents . '0',
                 200
@@ -355,7 +359,7 @@ class PagoIntegralController extends Controller
 
         if (in_array($iniciales, ['BB', 'BANESCO'])) {
             $codEmpresa = str_pad('366', 36);
-            $rif        = str_pad('J001426434', 17);
+            $rif        = str_pad('J406456900', 17);
             $header = '01'
                 . $codEmpresa
                 . now()->format('YmdHis')
@@ -363,7 +367,7 @@ class PagoIntegralController extends Controller
                 . $codEmpresa
                 . str_pad($banco->nombre ?? '', 60)
                 . $rif
-                . str_pad('ADMINISTRADORA INTEGRAL', 60);
+                . str_pad('INVERSIONES AS 2015 CA', 60);
 
             $lines = [$header];
             foreach ($pagos as $pago) {
@@ -385,7 +389,7 @@ class PagoIntegralController extends Controller
                     . str_pad('', 7)
                     . $cuenta
                     . str_pad('', 15)
-                    . str_pad('BANSVECA', 60)
+                    . str_pad('BANESCO', 60)
                     . str_pad('', 44)
                     . str_pad($nombre, 60)
                     . str_pad('', 44);

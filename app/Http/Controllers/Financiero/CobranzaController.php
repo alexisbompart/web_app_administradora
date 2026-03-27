@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Financiero;
 
 use App\Http\Controllers\Controller;
+use App\Models\Catalogo\TasaBcv;
 use App\Models\Financiero\CondDeudaApto;
 use App\Models\Financiero\CondPago;
 use App\Models\Financiero\CondPagoApto;
@@ -47,7 +48,20 @@ class CobranzaController extends Controller
 
     public function registrarPago(Request $request)
     {
-        $pago = CondPago::create($request->all());
+        $data = $request->all();
+
+        // Capture current BCV exchange rate at payment time
+        if (empty($data['tasa_bcv_pago'])) {
+            $tasaHoy = TasaBcv::where('moneda', 'USD')
+                ->where('fecha', '<=', now()->toDateString())
+                ->orderByDesc('fecha')
+                ->first();
+            if ($tasaHoy) {
+                $data['tasa_bcv_pago'] = $tasaHoy->tasa;
+            }
+        }
+
+        $pago = CondPago::create($data);
 
         return response()->json([
             'message' => 'Pago registrado exitosamente',
@@ -115,7 +129,7 @@ class CobranzaController extends Controller
                         'estatus'       => 'C',
                         'monto_pagado'  => DB::raw('monto_original'),
                         'saldo'         => 0,
-                        'fecha_pago'    => $pago->fecha_pago,
+                        'fecha_pag'     => $pago->fecha_pago,
                     ]);
                 }
             }

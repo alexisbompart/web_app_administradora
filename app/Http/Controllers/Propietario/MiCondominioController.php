@@ -134,6 +134,10 @@ class MiCondominioController extends Controller
             ->with(['pago.banco', 'pago.edificio', 'apartamento.edificio.compania', 'deuda'])
             ->firstOrFail();
 
+        if (($pagoApto->pago->estatus ?? 'P') !== 'A') {
+            return back()->with('error', 'El recibo no está disponible hasta que el pago sea aprobado.');
+        }
+
         return view('propietario.recibo', compact('propietario', 'pagoApto'));
     }
 
@@ -280,6 +284,11 @@ class MiCondominioController extends Controller
 
         DB::beginTransaction();
         try {
+            // Capture BCV rate at payment time
+            $tasaBcv = \App\Models\Catalogo\TasaBcv::where('moneda', 'USD')
+                ->where('fecha', '<=', now()->toDateString())
+                ->orderByDesc('fecha')->first();
+
             $pago = CondPago::create([
                 'compania_id'       => $primerDeuda->compania_id,
                 'edificio_id'       => $primerDeuda->edificio_id,
@@ -289,6 +298,7 @@ class MiCondominioController extends Controller
                 'numero_referencia' => $validated['numero_referencia'],
                 'monto_total'       => $montoTotal,
                 'monto_recibido'    => 0,
+                'tasa_bcv_pago'     => $tasaBcv?->tasa,
                 'estatus'           => 'P',
                 'registrado_por'    => Auth::id(),
                 'observaciones'     => 'Pago registrado por propietario desde portal web.',
@@ -457,14 +467,30 @@ class MiCondominioController extends Controller
         $apartamentos = $this->getApartamentos($propietario);
         $apartamentoIds = $apartamentos->pluck('id');
 
-        // Find afiliados linked to the propietario's apartments
-        $afilAptoIds = Afilapto::whereIn('apartamento_id', $apartamentoIds)
-            ->where('estatus_afil', 'A')->pluck('id');
+        // 1) Search by apartment chain: apartamento → afilapto → afilpagointegral
+        $afiliado = null;
+        if ($apartamentoIds->isNotEmpty()) {
+            $afilAptoIds = Afilapto::whereIn('apartamento_id', $apartamentoIds)
+                ->where('estatus_afil', 'A')->pluck('id');
 
-        $afiliado = Afilpagointegral::whereIn('afilapto_id', $afilAptoIds)
-            ->where('estatus', 'A')
-            ->with('afilapto.apartamento.edificio')
-            ->first();
+            $afiliado = Afilpagointegral::whereIn('afilapto_id', $afilAptoIds)
+                ->where('estatus', 'A')
+                ->with('afilapto.apartamento.edificio')
+                ->first();
+        }
+
+        // 2) Fallback: search by propietario cedula in afilpagointegral
+        if (!$afiliado && $propietario->cedula) {
+            $cedulaLimpia = preg_replace('/[^0-9]/', '', $propietario->cedula);
+            $afiliado = Afilpagointegral::where('estatus', 'A')
+                ->where(function ($q) use ($cedulaLimpia) {
+                    $q->where('cedula_rif', $cedulaLimpia)
+                      ->orWhere('cedula_rif', 'LIKE', "%-{$cedulaLimpia}")
+                      ->orWhere(DB::raw("REPLACE(REPLACE(cedula_rif, '.', ''), '-', '')"), $cedulaLimpia);
+                })
+                ->with('afilapto.apartamento.edificio')
+                ->first();
+        }
 
         $deudas = collect();
         if ($afiliado && $afiliado->afilapto) {
