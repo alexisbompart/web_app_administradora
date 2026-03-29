@@ -12,6 +12,7 @@ use App\Models\Condominio\Propietario;
 use App\Models\Financiero\Banco;
 use App\Models\Financiero\CondDeudaApto;
 use App\Models\Financiero\PagoIntegral;
+use App\Models\Financiero\PagoIntegralArchivo;
 use App\Models\Financiero\PagoIntegralDetalle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -279,123 +280,143 @@ class PagoIntegralController extends Controller
             ])
             ->get();
 
+        if ($pagos->isEmpty()) {
+            return back()->with('error', 'No hay pagos pendientes para ' . $banco->nombre);
+        }
+
         $content  = $this->generarContenidoArchivo($pagos, $banco, $request->tipo_archivo);
         $filename = $banco->iniciales . 'cobro' . $pagos->count() . '.txt';
+
+        // Registrar archivo generado
+        $archivo = PagoIntegralArchivo::create([
+            'banco_id'        => $banco->id,
+            'nombre_archivo'  => $filename,
+            'tipo_archivo'    => $request->tipo_archivo,
+            'cantidad_pagos'  => $pagos->count(),
+            'monto_total'     => $pagos->sum('monto_total'),
+            'estatus'         => PagoIntegralArchivo::ESTATUS_GENERADO,
+            'generado_por'    => Auth::id(),
+            'fecha_generado'  => now(),
+        ]);
+        $archivo->pagos()->attach($pagos->pluck('id'));
 
         return response()->streamDownload(function () use ($content) {
             echo $content;
         }, $filename, ['Content-Type' => 'text/plain']);
     }
 
+    public function archivos()
+    {
+        $archivos = PagoIntegralArchivo::with(['banco', 'generadoPor'])
+            ->latest('fecha_generado')
+            ->paginate(20);
+
+        return view('financiero.pago-integral-archivos', compact('archivos'));
+    }
+
+    public function archivoDetalle(PagoIntegralArchivo $archivo)
+    {
+        $archivo->load([
+            'banco', 'generadoPor',
+            'pagos.afilpagointegral.afilapto.apartamento.edificio',
+            'pagos.pagoIntegralDetalles',
+        ]);
+
+        return view('financiero.pago-integral-archivo-detalle', compact('archivo'));
+    }
+
+    public function actualizarEstatusArchivo(Request $request, PagoIntegralArchivo $archivo)
+    {
+        $request->validate([
+            'estatus' => 'required|in:GE,EN,EP,PR',
+        ]);
+
+        $nuevoEstatus = $request->estatus;
+        $data = ['estatus' => $nuevoEstatus];
+
+        if ($nuevoEstatus === PagoIntegralArchivo::ESTATUS_ENVIADO) {
+            $data['fecha_enviado'] = now();
+        } elseif ($nuevoEstatus === PagoIntegralArchivo::ESTATUS_PROCESADO) {
+            $data['fecha_procesado'] = now();
+
+            // Al procesar archivo, aprobar todos los pagos incluidos
+            DB::beginTransaction();
+            try {
+                $archivo->update($data);
+
+                foreach ($archivo->pagos()->where('estatus', 'P')->get() as $pago) {
+                    $pago->update([
+                        'estatus'       => 'A',
+                        'observaciones' => trim(($pago->observaciones ?? '') . ' | Aprobado via archivo #' . $archivo->id . ' (' . Auth::user()->name . ' ' . now()->format('d/m/Y H:i') . ')'),
+                    ]);
+
+                    // Cancelar deudas
+                    $apartamentoId = $pago->afilpagointegral?->afilapto?->apartamento_id;
+                    $periodos = $pago->pagoIntegralDetalles->pluck('periodo')->toArray();
+
+                    if ($apartamentoId && !empty($periodos)) {
+                        CondDeudaApto::where('apartamento_id', $apartamentoId)
+                            ->whereIn('periodo', $periodos)
+                            ->update([
+                                'estatus'      => 'C',
+                                'monto_pagado' => DB::raw('monto_original'),
+                                'saldo'        => 0,
+                                'fecha_pag'    => $pago->fecha,
+                            ]);
+                    }
+                }
+
+                DB::commit();
+                return back()->with('success', 'Archivo #' . $archivo->id . ' marcado como Procesado. ' . $archivo->cantidad_pagos . ' pago(s) aprobados.');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return back()->with('error', 'Error al procesar: ' . $e->getMessage());
+            }
+        }
+
+        if ($nuevoEstatus !== PagoIntegralArchivo::ESTATUS_PROCESADO) {
+            $archivo->update($data);
+        }
+
+        $label = PagoIntegralArchivo::ESTATUS_LABELS[$nuevoEstatus] ?? $nuevoEstatus;
+        return back()->with('success', 'Archivo #' . $archivo->id . ' actualizado a: ' . $label);
+    }
+
+    // ============ DATOS EMPRESA POR BANCO ============
+    private const EMPRESA_MERCANTIL = [
+        'rif'    => 'J0001426434',
+        'cuenta' => '01050026521026353807',
+    ];
+    private const EMPRESA_BANESCO = [
+        'rif'       => 'J001426434',
+        'nombre'    => 'ADMINISTRADORA INTEGRAL E L B  C A',
+        'cuenta'    => '01340277912771010167',
+        'servicio'  => '589',
+        'cod_banco' => 'BANSVECA',
+    ];
+    private const EMPRESA_BANCARIBE = [
+        'rif'    => 'J315799111',
+        'nombre' => 'CASTELLANA HOTEL',
+        'cuenta' => '01140165161650069095',
+    ];
+
     private function generarContenidoArchivo($pagos, $banco, $tipo): string
     {
         $iniciales = strtoupper(trim($banco->iniciales ?? ''));
 
+        // ============ BANCARIBE ============
         if (in_array($iniciales, ['BC', 'BANCARIBE'])) {
-            $lines = [];
-            foreach ($pagos as $pago) {
-                $afil      = $pago->afilpagointegral;
-                $letra     = $afil->letra ?? 'V';
-                $cedula    = $afil->cedula_rif;
-                $cuenta    = $afil->cta_bancaria;
-                $monto     = str_replace(',', '', number_format((float) $pago->monto_total, 2));
-                $nombre    = trim(($afil->nombres ?? '') . ' ' . ($afil->apellidos ?? ''));
-                $hoy       = now()->format('Ymd');
-                $detalle   = $pago->pagoIntegralDetalles->first();
-                if ($detalle && isset($detalle->periodo)) {
-                    $periodoStr = \Carbon\Carbon::parse('01-' . $detalle->periodo)->format('dmY');
-                } else {
-                    $periodoStr = '01' . $pago->fecha->format('mY');
-                }
-                $lines[] = "{$letra}{$cedula}/{$cuenta}/{$monto}/{$nombre}/{$hoy}/{$periodoStr}";
-            }
-            return implode("\n", $lines);
+            return $this->generarArchivoBancaribe($pagos);
         }
 
+        // ============ MERCANTIL ============
         if (in_array($iniciales, ['BM', 'MERCANTIL', 'BAMR'])) {
-            $total       = $pagos->sum('monto_total');
-            $totalCents  = str_pad((int) round($total * 100), 12, '0', STR_PAD_LEFT);
-            $count       = str_pad($pagos->count(), 7, '0', STR_PAD_LEFT);
-            $rifCompania = str_pad('J0406456900', 11);
-            $header      = str_pad(
-                '1' . str_pad('BAMRVECA', 12) . 'C' . '1' . now()->format('Ymd') . now()->format('Hi') . '00' . $count . 'DOMIC' . $rifCompania . $totalCents . '0',
-                200
-            );
-
-            $lines = [$header];
-            foreach ($pagos as $index => $pago) {
-                $afil      = $pago->afilpagointegral;
-                $letra     = $afil->letra ?? 'V';
-                $cedula    = $afil->cedula_rif;
-                $cuenta    = str_pad($afil->cta_bancaria ?? '', 20);
-                $cedPad    = str_pad($cedula, 10, '0', STR_PAD_LEFT);
-                $montoCents = str_pad((int) round((float) $pago->monto_total * 100), 17, '0', STR_PAD_LEFT);
-                $numApto   = $afil->afilapto->apartamento->num_apto ?? '';
-                $ref       = str_pad('000000000456' . str_pad($index + 1, 3, '0', STR_PAD_LEFT), 16);
-                $line = '2'
-                    . $letra
-                    . $cedPad
-                    . $cuenta
-                    . str_pad('', 10)
-                    . str_pad($cedula, 17)
-                    . str_pad('', 17)
-                    . $montoCents
-                    . str_pad('', 30)
-                    . str_pad($numApto, 17)
-                    . str_pad('', 9)
-                    . $ref
-                    . '0'
-                    . now()->format('Ymd')
-                    . '0000'
-                    . str_pad('', 30)
-                    . $ref
-                    . '0'
-                    . str_pad('0', 15)
-                    . str_pad('Pago Condominio', 35);
-                $lines[] = $line;
-            }
-            return implode("\n", $lines);
+            return $this->generarArchivoMercantil($pagos);
         }
 
-        if (in_array($iniciales, ['BB', 'BANESCO'])) {
-            $codEmpresa = str_pad('366', 36);
-            $rif        = str_pad('J406456900', 17);
-            $header = '01'
-                . $codEmpresa
-                . now()->format('YmdHis')
-                . 'SUB'
-                . $codEmpresa
-                . str_pad($banco->nombre ?? '', 60)
-                . $rif
-                . str_pad('INVERSIONES AS 2015 CA', 60);
-
-            $lines = [$header];
-            foreach ($pagos as $pago) {
-                $afil       = $pago->afilpagointegral;
-                $letra      = $afil->letra ?? 'V';
-                $cedula     = $afil->cedula_rif;
-                $montoCents = str_pad((int) round((float) $pago->monto_total * 100), 18, '0', STR_PAD_LEFT);
-                $nombre     = trim(($afil->nombres ?? '') . ' ' . ($afil->apellidos ?? ''));
-                $cuenta     = str_pad($afil->cta_bancaria ?? '', 20);
-                $line = '022'
-                    . now()->format('Ymd')
-                    . str_pad('', 27)
-                    . str_pad($letra . $cedula, 35)
-                    . str_pad('', 26)
-                    . now()->format('Ymd')
-                    . $montoCents
-                    . 'VES'
-                    . str_pad($letra . $cedula, 12)
-                    . str_pad('', 7)
-                    . $cuenta
-                    . str_pad('', 15)
-                    . str_pad('BANESCO', 60)
-                    . str_pad('', 44)
-                    . str_pad($nombre, 60)
-                    . str_pad('', 44);
-                $lines[] = $line;
-            }
-            return implode("\n", $lines);
+        // ============ BANESCO ============
+        if (in_array($iniciales, ['BB', 'BANESCO', 'BAN'])) {
+            return $this->generarArchivoBanesco($pagos);
         }
 
         // Default: simple CSV
@@ -412,6 +433,206 @@ class PagoIntegralController extends Controller
                 $pago->fecha->format('d/m/Y'),
             ]);
         }
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Formato Mercantil: Header "1" + Detail "2" por cada pago
+     * Basado en modelo real Mcobro.txt
+     */
+    private function generarArchivoMercantil($pagos): string
+    {
+        $emp         = self::EMPRESA_MERCANTIL;
+        $total       = $pagos->sum('monto_total');
+        $totalCents  = str_pad((int) round($total * 100), 15, '0', STR_PAD_LEFT);
+        $count       = str_pad($pagos->count(), 7, '0', STR_PAD_LEFT);
+        $cuenta      = $emp['cuenta'];
+
+        // Header (linea 1) — longitud fija ~200 chars
+        $header = '1'
+            . str_pad('BAMRVECA', 12)
+            . 'C1'
+            . now()->format('Ymd')
+            . now()->format('Hi')
+            . str_pad($count, 7, '0', STR_PAD_LEFT)
+            . 'DOMIC'
+            . str_pad($emp['rif'], 11)
+            . str_pad((int) round($total * 100), 12, '0', STR_PAD_LEFT)
+            . '0'
+            . str_pad('', 10, '0')
+            . now()->format('Ymd')
+            . str_pad($cuenta, 20)
+            . $totalCents;
+        $header = str_pad($header, 200);
+
+        $lines = [$header];
+
+        foreach ($pagos as $index => $pago) {
+            $afil       = $pago->afilpagointegral;
+            $letra      = $afil->letra ?? 'V';
+            $cedula     = $afil->cedula_rif ?? '';
+            $cuentaCli  = str_pad($afil->cta_bancaria ?? '', 20, '0', STR_PAD_RIGHT);
+            $cedPad     = str_pad($cedula, 10, '0', STR_PAD_LEFT);
+            $montoCents = str_pad((int) round((float) $pago->monto_total * 100), 17, '0', STR_PAD_LEFT);
+            $numApto    = $afil->afilapto->apartamento->num_apto ?? '';
+            $seq        = str_pad($index + 1, 3, '0', STR_PAD_LEFT);
+            $ref        = str_pad('000000000456' . $seq, 15, '0', STR_PAD_LEFT);
+
+            $detalle = $pago->pagoIntegralDetalles->first();
+            $periodo = '0000';
+            if ($detalle && $detalle->periodo) {
+                try {
+                    $periodo = \Carbon\Carbon::parse($detalle->periodo . '-01')->format('Ym') . '01';
+                } catch (\Exception $e) {
+                    $periodo = now()->format('Ym') . '01';
+                }
+            }
+
+            $line = '2'
+                . $letra
+                . $cedPad
+                . $cuentaCli
+                . str_pad('', 10)
+                . str_pad($cedula, 17)
+                . str_pad('', 17)
+                . $montoCents
+                . str_pad('', 30)
+                . str_pad($numApto, 17)
+                . str_pad('', 9)
+                . $ref
+                . '0'
+                . $periodo
+                . '0000'
+                . str_pad('', 30)
+                . $ref
+                . '0'
+                . str_pad('0', 15, '0')
+                . str_pad('Pago Condominio', 35);
+
+            $lines[] = $line;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Formato Banesco: HDR + 01 (batch) + 02 (empresa) + 03 (detalles) + 04 (trailer)
+     * Basado en modelo real Bcobro.txt
+     */
+    private function generarArchivoBanesco($pagos): string
+    {
+        $emp        = self::EMPRESA_BANESCO;
+        $total      = $pagos->sum('monto_total');
+        $totalCents = str_pad((int) round($total * 100), 15, '0', STR_PAD_LEFT);
+        $hoy        = now()->format('Ymd');
+        $hora       = now()->format('His');
+
+        // Linea HDR
+        $hdr = 'HDR' . str_pad('BANESCO', 14) . 'ED  96ADIRDEBP';
+
+        // Linea 01 — Batch header
+        $linea01 = '01SUB'
+            . str_pad('', 32)
+            . '9'
+            . str_pad('', 2)
+            . str_pad($emp['servicio'], 3)
+            . str_pad('', 36)
+            . $hoy . $hora;
+
+        // Linea 02 — Datos empresa
+        $linea02 = '02'
+            . str_pad('00000' . $emp['servicio'], 8)
+            . str_pad('', 22)
+            . str_pad($emp['rif'], 17)
+            . str_pad($emp['nombre'], 40)
+            . $totalCents
+            . 'VES'
+            . ' '
+            . str_pad($emp['cuenta'], 20)
+            . str_pad('', 15)
+            . str_pad($emp['cod_banco'], 10)
+            . str_pad('', 2)
+            . $hoy
+            . 'CB ';
+
+        // Lineas 03 — Detalles
+        $lines = [$hdr, $linea01, $linea02];
+        $countDebits  = 0;
+        $countCredits = $pagos->count();
+
+        foreach ($pagos as $pago) {
+            $afil    = $pago->afilpagointegral;
+            $letra   = $afil->letra ?? 'V';
+            $cedula  = $afil->cedula_rif ?? '';
+            $nombre  = str_pad(trim(($afil->nombres ?? '') . ' ' . ($afil->apellidos ?? '')), 30);
+            $cuenta  = str_pad($afil->cta_bancaria ?? '', 20);
+            $monto   = str_pad((int) round((float) $pago->monto_total * 100), 15, '0', STR_PAD_LEFT);
+            $cedulaId = $letra . $cedula;
+
+            $linea03 = '03'
+                . $hoy
+                . str_pad('', 22)
+                . $monto
+                . 'VES'
+                . $cuenta
+                . str_pad('', 10)
+                . str_pad($emp['cod_banco'], 10)
+                . ' '
+                . str_pad($cedulaId, 17)
+                . str_pad('', 9)
+                . $nombre
+                . str_pad('', 11)
+                . str_pad($cedulaId, 17)
+                . str_pad('', 33);
+
+            $lines[] = $linea03;
+        }
+
+        // Linea 04 — Trailer
+        $linea04 = '04'
+            . str_pad($countDebits + 1, 15, '0', STR_PAD_LEFT)
+            . str_pad($countCredits, 15, '0', STR_PAD_LEFT)
+            . $totalCents;
+
+        $lines[] = $linea04;
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Formato Bancaribe: sin header/trailer, cada linea es un registro slash-delimited
+     * Formato: {letra}{cedula}/{cuenta}/{monto con formato}/{nombre}/{fechaYmd}/{ddmmyyyy}
+     * Basado en modelo real BCcobro.txt
+     */
+    private function generarArchivoBancaribe($pagos): string
+    {
+        $lines = [];
+        $hoy = now()->format('Ymd');
+
+        foreach ($pagos as $pago) {
+            $afil      = $pago->afilpagointegral;
+            $letra     = $afil->letra ?? 'V';
+            $cedula    = $afil->cedula_rif ?? '';
+            $cuenta    = $afil->cta_bancaria ?? '';
+            $monto     = number_format((float) $pago->monto_total, 2, '.', ',');
+            $nombre    = strtoupper(trim(($afil->nombres ?? '') . ' ' . ($afil->apellidos ?? '')));
+
+            // Fecha del periodo: DDMMYYYY
+            $detalle = $pago->pagoIntegralDetalles->first();
+            if ($detalle && $detalle->periodo) {
+                try {
+                    $periodoDate = \Carbon\Carbon::parse($detalle->periodo . '-01');
+                    $periodoStr = $periodoDate->format('dm') . $periodoDate->format('Y');
+                } catch (\Exception $e) {
+                    $periodoStr = '01' . now()->format('mY');
+                }
+            } else {
+                $periodoStr = '01' . $pago->fecha->format('mY');
+            }
+
+            $lines[] = "{$letra}{$cedula}/{$cuenta}/{$monto}/{$nombre}/{$hoy}/{$periodoStr}";
+        }
+
         return implode("\n", $lines);
     }
 

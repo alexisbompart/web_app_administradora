@@ -5,9 +5,14 @@
                 <h2 class="text-2xl font-heading font-bold text-navy-800">Pago Integral</h2>
                 <p class="text-sm text-slate_custom-400 mt-1">Aprobacion de pagos integrales del condominio</p>
             </div>
-            <a href="{{ route('financiero.pago-integral.consultar-saldo') }}" class="btn-secondary">
-                <i class="fas fa-search-dollar mr-2"></i>Consultar Saldo
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="{{ route('financiero.pago-integral.archivos') }}" class="btn-primary">
+                    <i class="fas fa-folder-open mr-2"></i>Archivos Bancarios
+                </a>
+                <a href="{{ route('financiero.pago-integral.consultar-saldo') }}" class="btn-secondary">
+                    <i class="fas fa-search-dollar mr-2"></i>Consultar Saldo
+                </a>
+            </div>
         </div>
     </x-slot>
 

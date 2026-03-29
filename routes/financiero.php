@@ -126,6 +126,11 @@ Route::prefix('pago-integral')->name('pago-integral.')->group(function () {
     Route::get('/comprobante/{pago}', [PagoIntegralController::class, 'comprobante'])->name('comprobante');
     Route::post('/{pago}/aprobar', [PagoIntegralController::class, 'aprobarPago'])->name('aprobar');
     Route::post('/{pago}/rechazar', [PagoIntegralController::class, 'rechazarPago'])->name('rechazar');
+
+    // Archivos bancarios - tracking
+    Route::get('/archivos', [PagoIntegralController::class, 'archivos'])->name('archivos');
+    Route::get('/archivos/{archivo}', [PagoIntegralController::class, 'archivoDetalle'])->name('archivos.detalle');
+    Route::patch('/archivos/{archivo}/estatus', [PagoIntegralController::class, 'actualizarEstatusArchivo'])->name('archivos.estatus');
 });
 
 // CajaMatic
