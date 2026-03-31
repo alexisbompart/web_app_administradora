@@ -55,9 +55,17 @@ class ConsultaSaldoPublicaController extends Controller
             ]);
         }
 
-        $tasaBcv = TasaBcv::where('moneda', 'USD')
+        // Tasa BCV de hoy (la mas reciente)
+        $tasaBcvHoy = TasaBcv::where('moneda', 'USD')
             ->orderByDesc('fecha')
             ->first();
+
+        // Pre-cargar tasas del 1ro de cada mes para calcular REF
+        $tasasPrimerDia = TasaBcv::where('moneda', 'USD')
+            ->whereRaw("EXTRACT(DAY FROM fecha) = 1")
+            ->pluck('tasa', 'fecha')
+            ->mapWithKeys(fn($tasa, $fecha) => [substr($fecha, 0, 7) => $tasa])
+            ->toArray();
 
         $resultados = [];
 
@@ -69,11 +77,6 @@ class ConsultaSaldoPublicaController extends Controller
             $deudasPendientes = $deudas->filter(function ($d) {
                 return (is_null($d->fecha_pag) || $d->fecha_pag == '0001-01-01')
                     && (is_null($d->serial) || $d->serial === 'N');
-            });
-
-            $deudasPagadas = $deudas->filter(function ($d) {
-                return !is_null($d->fecha_pag) && $d->fecha_pag != '0001-01-01'
-                    && !is_null($d->serial) && $d->serial !== 'N';
             });
 
             $cantidadPendientes = $deudasPendientes->count();
@@ -107,41 +110,55 @@ class ConsultaSaldoPublicaController extends Controller
                     'extrajudicial' => false,
                     'cantidad_pendientes' => $cantidadPendientes,
                     'deuda_total' => '0,00',
-                    'deudas' => $ultimasDeudas->map(function ($d) use ($tasaBcv) {
+                    'deudas' => $ultimasDeudas->map(function ($d) use ($tasaBcvHoy, $tasasPrimerDia) {
                         $pagado = !is_null($d->fecha_pag) && $d->fecha_pag != '0001-01-01'
                             && !is_null($d->serial) && $d->serial !== 'N';
 
-                        // Pendiente: ultima tasa BCV | Pagado: tasa del dia que se pago
-                        $tasa = 0;
-                        if ($pagado && $d->fecha_pag) {
-                            // Buscar tasa del pago en cond_pago_aptos -> cond_pagos.tasa_bcv_pago
-                            $pagoApto = CondPagoApto::where('deuda_id', $d->id)
-                                ->with('pago')
-                                ->first();
+                        // Tasa del 1ro del mes del periodo para calcular REF
+                        $periodoKey = $d->periodo; // formato YYYY-MM
+                        $tasaPrimerDia = $tasasPrimerDia[$periodoKey] ?? null;
 
-                            if ($pagoApto && $pagoApto->pago && $pagoApto->pago->tasa_bcv_pago > 0) {
-                                $tasa = $pagoApto->pago->tasa_bcv_pago;
-                            } else {
-                                // Fallback: buscar en cond_tasas_bcv por la fecha de pago
-                                $tasaPago = TasaBcv::where('moneda', 'USD')
-                                    ->whereDate('fecha', '<=', $d->fecha_pag)
+                        // Si no hay tasa del 1ro exacto, buscar la mas cercana al inicio del mes
+                        if (!$tasaPrimerDia) {
+                            $inicioMes = $periodoKey . '-01';
+                            $tasaCercana = TasaBcv::where('moneda', 'USD')
+                                ->whereDate('fecha', '>=', $inicioMes)
+                                ->whereDate('fecha', '<=', $periodoKey . '-05')
+                                ->orderBy('fecha')
+                                ->first();
+                            if (!$tasaCercana) {
+                                $tasaCercana = TasaBcv::where('moneda', 'USD')
+                                    ->whereDate('fecha', '<=', $inicioMes)
                                     ->orderByDesc('fecha')
                                     ->first();
-                                $tasa = $tasaPago ? $tasaPago->tasa : ($tasaBcv ? $tasaBcv->tasa : 0);
                             }
-                        } else {
-                            $tasa = $tasaBcv ? $tasaBcv->tasa : 0;
+                            $tasaPrimerDia = $tasaCercana ? $tasaCercana->tasa : 0;
                         }
 
-                        $montoRef = $tasa > 0 ? round($d->monto_original / $tasa, 2) : 0;
+                        // REF = monto / tasa del 1ro del mes del periodo
+                        $montoRef = $tasaPrimerDia > 0 ? round($d->monto_original / $tasaPrimerDia, 2) : 0;
+
+                        // Total: pagado = REF x tasa del dia de pago | pendiente = REF x tasa de hoy
                         $abono = $d->monto_pagado ?? 0;
-                        $total = $d->monto_original + ($d->monto_mora ?? 0) + ($d->monto_interes ?? 0) - ($d->monto_descuento ?? 0);
+
+                        if ($pagado && $d->fecha_pag) {
+                            // Buscar tasa BCV de la fecha de pago
+                            $tasaPago = TasaBcv::where('moneda', 'USD')
+                                ->whereDate('fecha', '<=', $d->fecha_pag)
+                                ->orderByDesc('fecha')
+                                ->first();
+                            $tasaTotal = $tasaPago ? $tasaPago->tasa : ($tasaBcvHoy ? $tasaBcvHoy->tasa : 0);
+                        } else {
+                            $tasaTotal = $tasaBcvHoy ? $tasaBcvHoy->tasa : 0;
+                        }
+
+                        $total = round($montoRef * $tasaTotal, 2);
 
                         return [
                             'periodo' => $d->periodo,
                             'monto' => number_format($d->monto_original, 2, ',', '.'),
                             'monto_ref' => number_format($montoRef, 2, ',', '.'),
-                            'tasa_usada' => number_format($tasa, 2, ',', '.'),
+                            'tasa_usada' => number_format($tasaPrimerDia, 2, ',', '.'),
                             'abono' => number_format($abono, 2, ',', '.'),
                             'total' => number_format($total, 2, ',', '.'),
                             'fecha_pago' => $pagado && $d->fecha_pag ? $d->fecha_pag->format('d/m/Y') : null,
@@ -155,7 +172,7 @@ class ConsultaSaldoPublicaController extends Controller
 
         return response()->json([
             'success' => true,
-            'tasa_bcv' => $tasaBcv ? number_format($tasaBcv->tasa, 2, ',', '.') : 'N/A',
+            'tasa_bcv' => $tasaBcvHoy ? number_format($tasaBcvHoy->tasa, 2, ',', '.') : 'N/A',
             'resultados' => $resultados,
         ]);
     }

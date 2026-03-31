@@ -34,7 +34,7 @@ class EnvioReciboController extends Controller
                 ->get();
 
             $query = CondDeudaApto::where('edificio_id', $request->edificio_id)
-                ->where('estatus', 'P')
+                ->pendientes()
                 ->with(['apartamento']);
 
             if ($request->filled('periodo')) {

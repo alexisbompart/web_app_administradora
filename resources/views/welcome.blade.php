@@ -668,7 +668,7 @@
              MODAL CONSULTA DE SALDO
         ══════════════════════════════════════ -->
         <div id="modal-consulta-saldo" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4" style="background:rgba(0,0,0,.55); backdrop-filter:blur(4px);">
-            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative" onclick="event.stopPropagation()">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto relative" onclick="event.stopPropagation()">
                 <!-- Header -->
                 <div class="sticky top-0 bg-gradient-to-r from-navy-800 to-burgundy-800 rounded-t-3xl px-8 py-6 flex items-center justify-between z-10">
                     <div class="flex items-center gap-3">
@@ -972,63 +972,66 @@
             var html = '';
 
             data.resultados.forEach(function(r) {
-                // Info del inmueble
-                html += '<div class="bg-slate_custom-100/60 rounded-2xl p-5 border border-slate_custom-200">';
-                html += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">';
-                html += '<div class="text-center sm:text-left">';
-                html += '<p class="text-[10px] text-slate_custom-400 uppercase tracking-wide font-semibold mb-1">Nombre Inmueble</p>';
-                html += '<p class="text-sm font-heading font-bold text-navy-800">' + r.edificio + '</p>';
+                html += '<div class="bg-slate_custom-50/80 rounded-2xl border border-slate_custom-200 overflow-hidden">';
+
+                // Header del inmueble
+                html += '<div class="bg-gradient-to-r from-navy-800 to-navy-700 px-6 py-4">';
+                html += '<div class="flex items-center justify-between flex-wrap gap-3">';
+                html += '<div class="flex items-center gap-3">';
+                html += '<div class="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center"><i class="fas fa-building text-white"></i></div>';
+                html += '<div>';
+                html += '<p class="text-white font-heading font-bold text-sm">' + r.edificio + '</p>';
+                html += '<p class="text-white/60 text-xs">Unidad: <strong class="text-white/90">' + r.unidad + '</strong></p>';
                 html += '</div>';
-                html += '<div class="text-center sm:text-right">';
-                html += '<p class="text-[10px] text-slate_custom-400 uppercase tracking-wide font-semibold mb-1">Unidad</p>';
-                html += '<p class="text-sm font-heading font-bold text-navy-800">' + r.unidad + '</p>';
+                html += '</div>';
+                html += '<div class="text-right">';
+                html += '<p class="text-white/60 text-[10px] uppercase tracking-wide font-semibold">Tasa BCV Hoy</p>';
+                html += '<p class="text-white font-heading font-bold text-lg">' + data.tasa_bcv + ' Bs/$</p>';
+                html += '</div>';
                 html += '</div>';
                 html += '</div>';
 
-                // Tasa BCV
-                html += '<div class="bg-gradient-to-r from-navy-800 to-navy-700 rounded-xl px-5 py-3 flex items-center justify-between">';
-                html += '<span class="text-white/70 text-xs font-heading font-semibold uppercase tracking-wide">Tasa del BCV de hoy</span>';
-                html += '<span class="text-white font-heading font-bold text-sm">' + data.tasa_bcv + '</span>';
-                html += '</div>';
-
-                // Si es extrajudicial: solo mostrar alerta, NO la tabla
+                // Si es extrajudicial
                 if (r.extrajudicial) {
-                    html += '<div class="mt-4 bg-red-50 border-2 border-red-400 rounded-2xl p-6">';
+                    html += '<div class="p-6">';
+                    html += '<div class="bg-red-50 border-2 border-red-400 rounded-2xl p-6">';
                     html += '<div class="flex items-start gap-4">';
                     html += '<div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center flex-shrink-0">';
-                    html += '<i class="fas fa-gavel text-red-600 text-2xl"></i>';
-                    html += '</div>';
+                    html += '<i class="fas fa-gavel text-red-600 text-2xl"></i></div>';
                     html += '<div class="flex-1">';
                     html += '<p class="text-base font-heading font-bold text-red-700 mb-2">COBRANZA EXTRAJUDICIAL</p>';
                     html += '<p class="text-sm text-red-600 leading-relaxed">';
-                    html += 'Usted se encuentra en cobranza Extrajudicial, debido a una deuda de <strong>Bs. ' + r.deuda_total + '</strong> ';
-                    html += 'correspondiente a <strong>' + r.cantidad_pendientes + ' meses</strong>. ';
-                    html += 'Favor comunicarse con el Departamento de Cobranzas.</p>';
+                    html += 'Apreciado cliente, la deuda relativa a este apartamento se encuentra en cobranza extrajudicial ';
+                    html += 'debido al atraso de pago, que a la fecha debe <strong>' + r.cantidad_pendientes + ' meses</strong> ';
+                    html += 'por un total de <strong>Bs. ' + r.deuda_total + '</strong>. ';
+                    html += 'S&iacute;rvase comunicarse al Dpto. de Cobranzas.</p>';
                     html += '<div class="mt-4 flex flex-col sm:flex-row gap-3">';
                     html += '<a href="mailto:cobranzasintegralelb@gmail.com" class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-heading font-bold rounded-xl transition">';
                     html += '<i class="fas fa-envelope"></i> cobranzasintegralelb@gmail.com</a>';
                     html += '<span class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-100 text-red-700 text-xs font-heading font-bold rounded-xl">';
                     html += '<i class="fas fa-phone"></i> 0212-9515611 Ext. 413</span>';
-                    html += '</div>';
-                    html += '</div>';
-                    html += '</div>';
+                    html += '</div></div></div></div>';
                     html += '</div>';
                 } else {
-                    // Tabla de deudas (ultimos 4 meses)
-                    html += '<div class="mt-4">';
-                    html += '<h3 class="text-base font-heading font-bold text-navy-800 mb-3 text-center">Estado de Cuenta</h3>';
-                    html += '<div class="overflow-x-auto rounded-xl border border-slate_custom-200">';
-                    html += '<table class="w-full text-xs">';
-                    html += '<thead><tr class="bg-gradient-to-r from-navy-800 to-navy-700 text-white">';
-                    html += '<th class="px-3 py-2.5 text-left font-heading font-semibold">Fecha</th>';
-                    html += '<th class="px-3 py-2.5 text-right font-heading font-semibold">Monto</th>';
-                    html += '<th class="px-3 py-2.5 text-right font-heading font-semibold">Ref.</th>';
-                    html += '<th class="px-3 py-2.5 text-right font-heading font-semibold">Abono</th>';
-                    html += '<th class="px-3 py-2.5 text-right font-heading font-semibold">Total</th>';
-                    html += '<th class="px-3 py-2.5 text-center font-heading font-semibold">Fecha Pago</th>';
-                    html += '<th class="px-3 py-2.5 text-center font-heading font-semibold">Estatus</th>';
-                    html += '<th class="px-3 py-2.5 text-center font-heading font-semibold">Comprobante</th>';
+                    // Tabla de deudas
+                    html += '<div class="p-6">';
+                    html += '<h3 class="text-sm font-heading font-bold text-navy-800 mb-4 flex items-center gap-2">';
+                    html += '<i class="fas fa-file-invoice-dollar text-burgundy-800"></i> Estado de Cuenta</h3>';
+                    html += '<div class="overflow-x-auto rounded-xl border border-slate_custom-200 shadow-sm">';
+                    html += '<table class="w-full text-sm">';
+                    html += '<thead><tr class="bg-navy-800 text-white">';
+                    html += '<th class="px-4 py-3 text-left font-heading font-semibold text-xs">Periodo</th>';
+                    html += '<th class="px-4 py-3 text-right font-heading font-semibold text-xs">Monto Bs.</th>';
+                    html += '<th class="px-4 py-3 text-right font-heading font-semibold text-xs">Ref. $</th>';
+                    html += '<th class="px-4 py-3 text-right font-heading font-semibold text-xs">Tasa Ref.</th>';
+                    html += '<th class="px-4 py-3 text-right font-heading font-semibold text-xs">Abono Bs.</th>';
+                    html += '<th class="px-4 py-3 text-right font-heading font-semibold text-xs">Total Bs.</th>';
+                    html += '<th class="px-4 py-3 text-center font-heading font-semibold text-xs">Fecha Pago</th>';
+                    html += '<th class="px-4 py-3 text-center font-heading font-semibold text-xs">Estatus</th>';
+                    html += '<th class="px-4 py-3 text-center font-heading font-semibold text-xs">Comprobante</th>';
                     html += '</tr></thead><tbody>';
+
+                    var totalMonto = 0, totalRef = 0, totalAbono = 0, totalTotal = 0;
 
                     r.deudas.forEach(function(d, idx) {
                         var rowClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate_custom-50';
@@ -1036,17 +1039,36 @@
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-red-100 text-red-700';
 
-                        html += '<tr class="' + rowClass + ' border-b border-slate_custom-100 hover:bg-slate_custom-100/50">';
-                        html += '<td class="px-3 py-2.5">' + (d.periodo || '') + '</td>';
-                        html += '<td class="px-3 py-2.5 text-right">' + d.monto + ' Bs</td>';
-                        html += '<td class="px-3 py-2.5 text-right text-burgundy-800 font-semibold" title="Tasa: ' + d.tasa_usada + '">' + d.monto_ref + ' $</td>';
-                        html += '<td class="px-3 py-2.5 text-right">' + d.abono + ' Bs</td>';
-                        html += '<td class="px-3 py-2.5 text-right font-semibold">' + d.total + ' Bs</td>';
-                        html += '<td class="px-3 py-2.5 text-center">' + (d.fecha_pago || '-') + '</td>';
-                        html += '<td class="px-3 py-2.5 text-center"><span class="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold ' + statusClass + '">' + d.estatus + '</span></td>';
-                        html += '<td class="px-3 py-2.5 text-center text-navy-800 font-semibold">' + (d.comprobante || '-') + '</td>';
+                        // Parsear valores para totales
+                        totalMonto += parseFloat((d.monto || '0').replace(/\./g, '').replace(',', '.')) || 0;
+                        totalRef += parseFloat((d.monto_ref || '0').replace(/\./g, '').replace(',', '.')) || 0;
+                        totalAbono += parseFloat((d.abono || '0').replace(/\./g, '').replace(',', '.')) || 0;
+                        totalTotal += parseFloat((d.total || '0').replace(/\./g, '').replace(',', '.')) || 0;
+
+                        html += '<tr class="' + rowClass + ' border-b border-slate_custom-100 hover:bg-slate_custom-100/50 transition">';
+                        html += '<td class="px-4 py-3 font-medium text-navy-800">' + (d.periodo || '') + '</td>';
+                        html += '<td class="px-4 py-3 text-right tabular-nums">' + d.monto + '</td>';
+                        html += '<td class="px-4 py-3 text-right tabular-nums text-burgundy-800 font-semibold">' + d.monto_ref + '</td>';
+                        html += '<td class="px-4 py-3 text-right tabular-nums text-slate_custom-400 text-xs">' + d.tasa_usada + '</td>';
+                        html += '<td class="px-4 py-3 text-right tabular-nums">' + d.abono + '</td>';
+                        html += '<td class="px-4 py-3 text-right tabular-nums font-semibold">' + d.total + '</td>';
+                        html += '<td class="px-4 py-3 text-center">' + (d.fecha_pago || '-') + '</td>';
+                        html += '<td class="px-4 py-3 text-center"><span class="inline-block px-3 py-1 rounded-lg text-[10px] font-bold ' + statusClass + '">' + d.estatus + '</span></td>';
+                        html += '<td class="px-4 py-3 text-center text-navy-800 font-semibold text-xs">' + (d.comprobante || '-') + '</td>';
                         html += '</tr>';
                     });
+
+                    // Fila de totales
+                    function fmtNum(val) { return val.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+                    html += '<tr class="bg-navy-800/5 border-t-2 border-navy-800/20 font-bold">';
+                    html += '<td class="px-4 py-3 font-heading text-navy-800">TOTALES</td>';
+                    html += '<td class="px-4 py-3 text-right tabular-nums">' + fmtNum(totalMonto) + '</td>';
+                    html += '<td class="px-4 py-3 text-right tabular-nums text-burgundy-800">' + fmtNum(totalRef) + '</td>';
+                    html += '<td class="px-4 py-3"></td>';
+                    html += '<td class="px-4 py-3 text-right tabular-nums">' + fmtNum(totalAbono) + '</td>';
+                    html += '<td class="px-4 py-3 text-right tabular-nums text-burgundy-800 text-base">' + fmtNum(totalTotal) + '</td>';
+                    html += '<td colspan="3"></td>';
+                    html += '</tr>';
 
                     html += '</tbody></table></div></div>';
                 }

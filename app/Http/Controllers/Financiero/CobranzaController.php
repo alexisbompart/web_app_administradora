@@ -25,17 +25,23 @@ class CobranzaController extends Controller
         $query = CondDeudaApto::with(['apartamento', 'edificio']);
 
         if (request('filtro') === 'pendientes') {
-            $query->where('estatus', 'P');
+            $query->pendientes();
         } elseif (request('filtro') === 'canceladas') {
-            $query->where('estatus', 'C');
+            $query->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->whereNotNull('serial')->where('serial', '!=', 'N');
+                })->orWhere(function ($q2) {
+                    $q2->whereNotNull('fecha_pag')->where('fecha_pag', '!=', '0001-01-01');
+                });
+            });
         }
 
         $deudas = $query->paginate(15);
 
         $stats = [
-            'pendientes_count' => CondDeudaApto::where('estatus', 'P')->count(),
-            'monto_total_pendiente' => CondDeudaApto::where('estatus', 'P')->sum('saldo'),
-            'morosos_count' => CondDeudaApto::where('estatus', 'P')
+            'pendientes_count' => CondDeudaApto::pendientes()->count(),
+            'monto_total_pendiente' => CondDeudaApto::pendientes()->sum('saldo'),
+            'morosos_count' => CondDeudaApto::pendientes()
                 ->selectRaw('apartamento_id, COUNT(*) as meses')
                 ->groupBy('apartamento_id')
                 ->having(\DB::raw('COUNT(*)'), '>=', 3)
@@ -72,7 +78,7 @@ class CobranzaController extends Controller
 
     public function morosos()
     {
-        $morosos = CondDeudaApto::where('estatus', 'P')
+        $morosos = CondDeudaApto::pendientes()
             ->select('apartamento_id', DB::raw('COUNT(*) as meses_vencidos'), DB::raw('SUM(saldo) as total_deuda'))
             ->groupBy('apartamento_id')
             ->having(DB::raw('COUNT(*)'), '>=', 2)
@@ -160,7 +166,7 @@ class CobranzaController extends Controller
 
     public function gestionJudicial(Request $request)
     {
-        $morosos = CondDeudaApto::where('estatus', 'P')
+        $morosos = CondDeudaApto::pendientes()
             ->select('apartamento_id', DB::raw('COUNT(*) as meses_vencidos'), DB::raw('SUM(saldo) as total_deuda'))
             ->groupBy('apartamento_id')
             ->having(DB::raw('COUNT(*)'), '>=', 3)

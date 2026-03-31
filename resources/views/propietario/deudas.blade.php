@@ -14,26 +14,19 @@
     </x-slot>
 
     {{-- Filter Bar --}}
+    @if($apartamentos->count() > 1)
     <div class="card mb-6">
         <div class="card-body">
             <form method="GET" action="{{ route('mi-condominio.deudas') }}" class="flex flex-wrap items-end gap-4">
                 <div class="flex-1 min-w-[200px]">
                     <label class="block text-xs font-semibold text-slate_custom-500 uppercase mb-1">Apartamento</label>
-                    <select name="apartamento_id" class="w-full rounded-lg border-slate_custom-200 text-sm focus:border-burgundy-800 focus:ring-burgundy-800">
+                    <select name="apartamento" class="w-full rounded-lg border-slate_custom-200 text-sm focus:border-burgundy-800 focus:ring-burgundy-800">
                         <option value="">Todos los apartamentos</option>
                         @foreach($apartamentos as $apto)
-                            <option value="{{ $apto->id }}" {{ request('apartamento_id') == $apto->id ? 'selected' : '' }}>
+                            <option value="{{ $apto->id }}" {{ request('apartamento') == $apto->id ? 'selected' : '' }}>
                                 {{ $apto->edificio->nombre }} - Apto {{ $apto->num_apto }}
                             </option>
                         @endforeach
-                    </select>
-                </div>
-                <div class="flex-1 min-w-[200px]">
-                    <label class="block text-xs font-semibold text-slate_custom-500 uppercase mb-1">Estatus</label>
-                    <select name="estatus" class="w-full rounded-lg border-slate_custom-200 text-sm focus:border-burgundy-800 focus:ring-burgundy-800">
-                        <option value="">Todas</option>
-                        <option value="P" {{ request('estatus') === 'P' ? 'selected' : '' }}>Pendientes</option>
-                        <option value="C" {{ request('estatus') === 'C' ? 'selected' : '' }}>Canceladas</option>
                     </select>
                 </div>
                 <div>
@@ -44,17 +37,17 @@
             </form>
         </div>
     </div>
+    @endif
 
     {{-- Summary --}}
     @php
-        $pendientes = $deudas->getCollection()->where('estatus', 'P');
-        $totalPendiente = $pendientes->sum('saldo');
-        $countPendiente = $pendientes->count();
+        $totalPendiente = $deudas->getCollection()->sum('saldo');
+        $countPendiente = $deudas->total();
     @endphp
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <div class="stat-card">
             <div class="flex items-center justify-between">
-                <div class="stat-label">Deudas Pendientes</div>
+                <div class="stat-label">Recibos Pendientes</div>
                 <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
                     <i class="fas fa-exclamation-triangle text-yellow-600"></i>
                 </div>
@@ -76,7 +69,7 @@
     <div class="card">
         <div class="card-header">
             <h3 class="text-sm font-heading font-semibold text-navy-800">
-                <i class="fas fa-list mr-2 text-burgundy-800"></i>Listado de Deudas
+                <i class="fas fa-list mr-2 text-burgundy-800"></i>Listado de Deudas Pendientes
             </h3>
         </div>
         <div class="card-body">
@@ -89,7 +82,6 @@
                             <th>Fecha Emision</th>
                             <th>Fecha Vencimiento</th>
                             <th>Monto Original</th>
-                            <th>Pagado</th>
                             <th>Saldo</th>
                             <th>Estatus</th>
                             <th>Acciones</th>
@@ -98,11 +90,11 @@
                     <tbody>
                         @forelse($deudas as $deuda)
                             @php
-                                $vencida = $deuda->estatus === 'P' && $deuda->fecha_vencimiento && \Carbon\Carbon::parse($deuda->fecha_vencimiento)->lt(now());
+                                $vencida = $deuda->fecha_vencimiento && \Carbon\Carbon::parse($deuda->fecha_vencimiento)->lt(now());
                             @endphp
                             <tr class="{{ $vencida ? 'bg-red-50' : '' }}">
                                 <td class="font-medium">
-                                    {{ $deuda->apartamento->edificio->nombre }} - {{ $deuda->apartamento->num_apto }}
+                                    {{ $deuda->apartamento?->edificio?->nombre }} - {{ $deuda->apartamento?->num_apto }}
                                 </td>
                                 <td>{{ $deuda->periodo }}</td>
                                 <td>{{ $deuda->fecha_emision ? \Carbon\Carbon::parse($deuda->fecha_emision)->format('d/m/Y') : '--' }}</td>
@@ -114,17 +106,12 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td>{{ number_format($deuda->monto_original, 2, ',', '.') }} Bs</td>
-                                <td>{{ number_format($deuda->monto_pagado, 2, ',', '.') }} Bs</td>
-                                <td class="font-semibold {{ $deuda->saldo > 0 ? 'text-red-600' : 'text-green-600' }}">
-                                    {{ number_format($deuda->saldo, 2, ',', '.') }} Bs
+                                <td>{{ number_format((float)$deuda->monto_original, 2, ',', '.') }} Bs</td>
+                                <td class="font-semibold text-red-600">
+                                    {{ number_format((float)$deuda->saldo, 2, ',', '.') }} Bs
                                 </td>
                                 <td>
-                                    @if($deuda->estatus === 'P')
-                                        <span class="badge-warning">Pendiente</span>
-                                    @elseif($deuda->estatus === 'C')
-                                        <span class="badge-success">Cancelada</span>
-                                    @endif
+                                    <span class="badge-warning">Pendiente</span>
                                 </td>
                                 <td>
                                     @php
@@ -146,9 +133,9 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-center text-slate_custom-400 py-8">
-                                    <i class="fas fa-inbox text-3xl mb-2 block"></i>
-                                    No hay deudas registradas
+                                <td colspan="8" class="text-center text-slate_custom-400 py-8">
+                                    <i class="fas fa-check-circle text-3xl mb-2 block text-green-500"></i>
+                                    No tiene deudas pendientes
                                 </td>
                             </tr>
                         @endforelse

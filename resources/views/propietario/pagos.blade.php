@@ -63,14 +63,14 @@
                     <tbody>
                         @forelse($pagos as $pago)
                             <tr>
-                                <td>{{ \Carbon\Carbon::parse($pago->pago->fecha_pago)->format('d/m/Y') }}</td>
-                                <td class="font-medium text-navy-800">{{ $pago->pago->numero_recibo ?? '--' }}</td>
+                                <td>{{ $pago->pago?->fecha_pago ? \Carbon\Carbon::parse($pago->pago->fecha_pago)->format('d/m/Y') : '--' }}</td>
+                                <td class="font-medium text-navy-800">{{ $pago->pago?->numero_recibo ?? '--' }}</td>
                                 <td>
                                     {{ $pago->apartamento->edificio->nombre }} - {{ $pago->apartamento->num_apto }}
                                 </td>
                                 <td>{{ $pago->periodo }}</td>
                                 <td>
-                                    <span class="badge-info">{{ $pago->pago->forma_pago ?? '--' }}</span>
+                                    <span class="badge-info">{{ $pago->pago?->forma_pago ?? '--' }}</span>
                                 </td>
                                 <td class="text-sm text-slate_custom-500">{{ $pago->pago->numero_referencia ?? '--' }}</td>
                                 <td class="font-semibold text-green-600">

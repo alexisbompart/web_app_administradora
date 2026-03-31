@@ -41,6 +41,37 @@
                 <p class="text-sm text-slate_custom-400">Todos sus recibos estan al dia.</p>
             </div>
         </div>
+    @elseif($deudasPendientes->count() > 4)
+        {{-- COBRANZA EXTRAJUDICIAL --}}
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="bg-red-50 border-2 border-red-400 rounded-2xl p-8">
+                    <div class="flex items-start gap-5">
+                        <div class="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-gavel text-red-600 text-3xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-heading font-bold text-red-700 mb-3">COBRANZA EXTRAJUDICIAL</h3>
+                            <p class="text-sm text-red-700 leading-relaxed">
+                                Apreciado cliente, la deuda relativa a este apartamento, se encuentra en cobranza extrajudicial
+                                debido al atraso de pago, que a la fecha debe <strong>{{ $deudasPendientes->count() }} meses</strong>.
+                                S&iacute;rvase comunicarse al Dpto. Cobranzas a la direcci&oacute;n e-mail:
+                                <a href="mailto:cobranzasintegralelb@gmail.com" class="underline font-bold">cobranzasintegralelb@gmail.com</a>
+                                o al tel&eacute;fono <strong>0212-9515611 Ext. 413</strong>.
+                            </p>
+                            <div class="mt-5 flex flex-col sm:flex-row gap-3">
+                                <a href="mailto:cobranzasintegralelb@gmail.com" class="inline-flex items-center gap-2 px-5 py-3 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-heading font-bold rounded-xl transition">
+                                    <i class="fas fa-envelope"></i> cobranzasintegralelb@gmail.com
+                                </a>
+                                <span class="inline-flex items-center gap-2 px-5 py-3 bg-red-100 text-red-700 text-sm font-heading font-bold rounded-xl">
+                                    <i class="fas fa-phone"></i> 0212-9515611 Ext. 413
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     @else
         <form method="POST" action="{{ route('mi-condominio.registrar-pago.store') }}" id="form-pago">
             @csrf

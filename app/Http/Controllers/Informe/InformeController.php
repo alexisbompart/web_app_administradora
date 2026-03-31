@@ -76,7 +76,7 @@ class InformeController extends Controller
         $edificios = Edificio::orderBy('nombre')->get();
         $mesesMinimos = (int) $request->input('meses', 1);
 
-        $query = CondDeudaApto::where('estatus', 'P')
+        $query = CondDeudaApto::pendientes()
             ->select(
                 'apartamento_id',
                 DB::raw('COUNT(*) as meses_vencidos'),
@@ -180,18 +180,22 @@ class InformeController extends Controller
 
                 // Deudas pendientes
                 $deudasPendientes = CondDeudaApto::where('edificio_id', $edificio->id)
-                    ->where('estatus', 'P')
+                    ->pendientes()
                     ->sum('saldo');
 
                 // Deudas cobradas en el año
                 $deudasCobradas = CondDeudaApto::where('edificio_id', $edificio->id)
-                    ->where('estatus', 'C')
+                    ->where(function ($q) {
+                        $q->where(function ($q2) {
+                            $q2->whereNotNull('serial')->where('serial', '!=', 'N');
+                        });
+                    })
                     ->whereYear('updated_at', $anio)
-                    ->sum('monto');
+                    ->sum('monto_original');
 
                 // Morosos
                 $morososCount = CondDeudaApto::where('edificio_id', $edificio->id)
-                    ->where('estatus', 'P')
+                    ->pendientes()
                     ->select('apartamento_id')
                     ->groupBy('apartamento_id')
                     ->having(DB::raw('COUNT(*)'), '>=', 2)
@@ -240,7 +244,7 @@ class InformeController extends Controller
 
                 // Deudas pendientes
                 $deudasPendientes = CondDeudaApto::where('edificio_id', $edificio->id)
-                    ->where('estatus', 'P')
+                    ->pendientes()
                     ->sum('saldo');
 
                 $data = [

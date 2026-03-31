@@ -4,7 +4,7 @@
             <div>
                 <h2 class="text-2xl font-heading font-bold text-navy-800">Recibo de Pago</h2>
                 <p class="text-sm text-slate_custom-400 mt-1">
-                    Recibo Nro: {{ $pagoApto->pago->numero_recibo ?? 'S/N' }}
+                    Recibo Nro: {{ $pagoApto->pago?->numero_recibo ?? 'S/N' }}
                 </p>
             </div>
             <div class="flex gap-3">
@@ -53,11 +53,11 @@
                     <div class="space-y-3">
                         <div class="flex justify-between py-2 border-b border-slate_custom-100">
                             <span class="text-sm text-slate_custom-500 font-medium">Nro Recibo:</span>
-                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago->numero_recibo ?? 'S/N' }}</span>
+                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago?->numero_recibo ?? 'S/N' }}</span>
                         </div>
                         <div class="flex justify-between py-2 border-b border-slate_custom-100">
                             <span class="text-sm text-slate_custom-500 font-medium">Fecha:</span>
-                            <span class="text-sm font-semibold text-navy-800">{{ \Carbon\Carbon::parse($pagoApto->pago->fecha_pago)->format('d/m/Y') }}</span>
+                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago?->fecha_pago ? \Carbon\Carbon::parse($pagoApto->pago->fecha_pago)->format('d/m/Y') : '--' }}</span>
                         </div>
                         <div class="flex justify-between py-2 border-b border-slate_custom-100">
                             <span class="text-sm text-slate_custom-500 font-medium">Propietario:</span>
@@ -83,15 +83,15 @@
                         </div>
                         <div class="flex justify-between py-2 border-b border-slate_custom-100">
                             <span class="text-sm text-slate_custom-500 font-medium">Forma de Pago:</span>
-                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago->forma_pago ?? '--' }}</span>
+                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago?->forma_pago ?? '--' }}</span>
                         </div>
                         <div class="flex justify-between py-2 border-b border-slate_custom-100">
                             <span class="text-sm text-slate_custom-500 font-medium">Referencia:</span>
-                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago->numero_referencia ?? '--' }}</span>
+                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago?->numero_referencia ?? '--' }}</span>
                         </div>
                         <div class="flex justify-between py-2 border-b border-slate_custom-100">
                             <span class="text-sm text-slate_custom-500 font-medium">Banco:</span>
-                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago->banco?->nombre ?? '--' }}</span>
+                            <span class="text-sm font-semibold text-navy-800">{{ $pagoApto->pago?->banco?->nombre ?? '--' }}</span>
                         </div>
                     </div>
                 </div>

@@ -148,22 +148,13 @@ class AfilAptoImportController extends Controller
 
         $results = ['imported' => 0, 'previous_count' => Afilapto::count(), 'errors' => []];
 
-        // Truncar tabla
+        // Truncar tabla con CASCADE para PostgreSQL (afilpagointegral tiene FK a afilapto)
         try {
-            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-            DB::table('afilapto')->truncate();
-            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            DB::statement('TRUNCATE TABLE afilapto CASCADE');
         } catch (\Exception $e) {
-            // PostgreSQL fallback
-            try {
-                DB::statement('ALTER TABLE afilapto DISABLE TRIGGER ALL');
-                DB::table('afilapto')->truncate();
-                DB::statement('ALTER TABLE afilapto ENABLE TRIGGER ALL');
-            } catch (\Exception $e2) {
-                @unlink($tempPath);
-                return redirect()->route('condominio.afilapto.importar')
-                    ->with('error', 'Error al limpiar tabla: ' . $e2->getMessage());
-            }
+            @unlink($tempPath);
+            return redirect()->route('condominio.afilapto.importar')
+                ->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
         }
 
         // Stream e insertar por lotes
@@ -171,6 +162,7 @@ class AfilAptoImportController extends Controller
         $batch = [];
         $batchSize = 1000;
         $now = now()->toDateTimeString();
+        $columns = ['id', 'cod_pint', 'apartamento_id', 'edificio_id', 'compania_id', 'estatus_afil', 'fecha_afiliacion', 'observaciones', 'created_at', 'updated_at'];
 
         DB::beginTransaction();
         try {
@@ -181,11 +173,15 @@ class AfilAptoImportController extends Controller
                 $data = json_decode($line, true);
                 if (!$data) continue;
 
-                $data = array_filter($data, fn($v) => $v !== null);
                 $data['created_at'] = $now;
                 $data['updated_at'] = $now;
 
-                $batch[] = $data;
+                // Normalizar: solo columnas validas, mantener nulls
+                $normalized = [];
+                foreach ($columns as $col) {
+                    $normalized[$col] = $data[$col] ?? null;
+                }
+                $batch[] = $normalized;
 
                 if (count($batch) >= $batchSize) {
                     $this->insertBatch($batch, $results);
@@ -213,7 +209,7 @@ class AfilAptoImportController extends Controller
             $maxId = DB::table('afilapto')->max('id') ?? 0;
             DB::statement("SELECT setval(pg_get_serial_sequence('afilapto', 'id'), GREATEST(?, 1), true)", [$maxId]);
         } catch (\Exception $e) {
-            // Non-critical, MySQL doesn't need this
+            // Non-critical
         }
 
         @unlink($tempPath);
@@ -224,34 +220,24 @@ class AfilAptoImportController extends Controller
     {
         if (empty($batch)) return;
 
-        $allKeys = [];
+        // Insertar fila por fila con SAVEPOINT para que un error no aborte todo en PostgreSQL
         foreach ($batch as $row) {
-            foreach (array_keys($row) as $k) $allKeys[$k] = true;
-        }
-        $allKeys = array_keys($allKeys);
-
-        $normalized = [];
-        foreach ($batch as $row) {
-            $nr = [];
-            foreach ($allKeys as $key) $nr[$key] = $row[$key] ?? null;
-            $normalized[] = $nr;
-        }
-
-        try {
-            DB::table('afilapto')->insert($normalized);
-            $results['imported'] += count($normalized);
-        } catch (\Exception $e) {
-            foreach ($normalized as $row) {
-                try {
-                    DB::table('afilapto')->insert($row);
-                    $results['imported']++;
-                } catch (\Exception $e2) {
-                    if (count($results['errors']) < 50) {
-                        $results['errors'][] = [
-                            'info' => ($row['cod_pint'] ?? '') . '/' . ($row['estatus_afil'] ?? ''),
-                            'reason' => $e2->getMessage(),
-                        ];
-                    }
+            try {
+                DB::statement('SAVEPOINT sp_row');
+                DB::table('afilapto')->upsert(
+                    [$row],
+                    ['id'],
+                    ['cod_pint', 'apartamento_id', 'edificio_id', 'compania_id', 'estatus_afil', 'fecha_afiliacion', 'observaciones', 'updated_at']
+                );
+                DB::statement('RELEASE SAVEPOINT sp_row');
+                $results['imported']++;
+            } catch (\Exception $e) {
+                DB::statement('ROLLBACK TO SAVEPOINT sp_row');
+                if (count($results['errors']) < 50) {
+                    $results['errors'][] = [
+                        'info' => ($row['cod_pint'] ?? '') . '/' . ($row['estatus_afil'] ?? ''),
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

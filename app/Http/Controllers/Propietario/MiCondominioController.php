@@ -54,7 +54,7 @@ class MiCondominioController extends Controller
         $apartamentoIds = $apartamentos->pluck('id');
 
         $deudasPendientes = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
-            ->where('estatus', 'P')
+            ->pendientes()
             ->get();
 
         $totalDeuda = $deudasPendientes->sum('saldo');
@@ -88,13 +88,11 @@ class MiCondominioController extends Controller
         $apartamentoIds = $apartamentos->pluck('id');
 
         $query = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
+            ->pendientes()
             ->with(['apartamento.edificio']);
 
         if ($request->filled('apartamento')) {
             $query->where('apartamento_id', $request->apartamento);
-        }
-        if ($request->filled('estatus')) {
-            $query->where('estatus', $request->estatus);
         }
 
         $deudas = $query->orderByDesc('periodo')->paginate(15)->withQueryString();
@@ -170,12 +168,12 @@ class MiCondominioController extends Controller
             $totalAptosEdificio = Apartamento::where('edificio_id', $edificio->id)->count();
 
             $deudasEdificio = CondDeudaApto::where('edificio_id', $edificio->id)
-                ->where('estatus', 'P')
+                ->pendientes()
                 ->count();
 
             $morosidadEdificio = $totalAptosEdificio > 0
                 ? round(CondDeudaApto::where('edificio_id', $edificio->id)
-                    ->where('estatus', 'P')
+                    ->pendientes()
                     ->distinct('apartamento_id')
                     ->count('apartamento_id') / $totalAptosEdificio * 100, 1)
                 : 0;
@@ -223,7 +221,7 @@ class MiCondominioController extends Controller
         $apartamentoIds = $apartamentos->pluck('id');
 
         $deudasPendientes = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
-            ->where('estatus', 'P')
+            ->pendientes()
             ->with(['apartamento.edificio'])
             ->orderBy('periodo')
             ->get();
@@ -253,7 +251,7 @@ class MiCondominioController extends Controller
 
         $deudas = CondDeudaApto::whereIn('id', $validated['deudas'])
             ->whereIn('apartamento_id', $apartamentoIds)
-            ->where('estatus', 'P')
+            ->pendientes()
             ->with('apartamento.edificio')
             ->orderBy('periodo')
             ->get();
@@ -264,7 +262,7 @@ class MiCondominioController extends Controller
 
         // Validate consecutive order from oldest
         $allDeudas = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
-            ->where('estatus', 'P')
+            ->pendientes()
             ->orderBy('periodo')
             ->pluck('id')
             ->toArray();
@@ -495,7 +493,7 @@ class MiCondominioController extends Controller
         $deudas = collect();
         if ($afiliado && $afiliado->afilapto) {
             $deudas = CondDeudaApto::where('apartamento_id', $afiliado->afilapto->apartamento_id)
-                ->where('estatus', 'P')
+                ->pendientes()
                 ->orderBy('periodo')
                 ->get();
         }
@@ -543,7 +541,7 @@ class MiCondominioController extends Controller
 
         // Get all pending debts for validation
         $allDeudas = CondDeudaApto::where('apartamento_id', $apartamentoId)
-            ->where('estatus', 'P')
+            ->pendientes()
             ->orderBy('periodo')
             ->get();
 
@@ -561,7 +559,7 @@ class MiCondominioController extends Controller
 
         $deudas = CondDeudaApto::whereIn('id', $selectedIds->toArray())
             ->where('apartamento_id', $apartamentoId)
-            ->where('estatus', 'P')
+            ->pendientes()
             ->orderBy('periodo')
             ->get();
 
