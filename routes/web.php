@@ -67,8 +67,11 @@ Route::middleware('auth')->group(function () {
 });
 
 use App\Http\Controllers\PagoIntegral\AfiliacionPublicaController;
+use App\Http\Controllers\ConsultaSaldoPublicaController;
 
 Route::get('/afiliacion', [AfiliacionPublicaController::class, 'show'])->name('afiliacion.publica');
 Route::post('/afiliacion', [AfiliacionPublicaController::class, 'store'])->name('afiliacion.publica.store');
+
+Route::post('/consulta-saldo', [ConsultaSaldoPublicaController::class, 'consultar'])->name('consulta.saldo.publica');
 
 require __DIR__.'/auth.php';

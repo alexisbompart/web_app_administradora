@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 class DeudaImportController extends Controller
 {
     use ImportFileParser;
+
     private array $columnMap = [
         'COD_EDIF'              => 'cod_edif_legacy',
         'COMPANIA'              => 'compania_legacy',
@@ -58,11 +59,10 @@ class DeudaImportController extends Controller
     public function preview(Request $request)
     {
         $request->validate(['archivo' => 'required|file|max:51200']);
+        set_time_limit(300);
 
         $file = $request->file('archivo');
-        $lines = $this->readFileLines($file);
-        $headerFields = $this->parseHeader($lines[0]);
-        $headerIndex = $this->buildHeaderIndex($headerFields);
+        $filePath = $file->getRealPath();
 
         // Pre-load lookups
         $companias = Compania::pluck('id', 'cod_compania')->toArray();
@@ -72,11 +72,34 @@ class DeudaImportController extends Controller
             ->mapWithKeys(fn($a) => [$a->edificio_id . '_' . $a->num_apto => $a->id])
             ->toArray();
 
+        // Stream file line by line
+        $handle = fopen($filePath, 'r');
+        $headerLine = fgets($handle);
+
+        if (!mb_check_encoding($headerLine, 'UTF-8')) {
+            $headerLine = mb_convert_encoding($headerLine, 'UTF-8', 'Windows-1252');
+        }
+
+        $headerFields = $this->parseHeader($headerLine);
+        $headerIndex = $this->buildHeaderIndex($headerFields);
+
         $rows = [];
         $errors = [];
+        $lineNumber = 1;
+        $validCount = 0;
 
-        for ($lineNumber = 2; $lineNumber <= count($lines); $lineNumber++) {
-            $line = trim($lines[$lineNumber - 1]);
+        // Save temp file for execute step - write as we go (streaming)
+        $tempPath = storage_path('app/import_deudas_' . auth()->id() . '.bin');
+        $tempHandle = fopen($tempPath, 'w');
+
+        while (($line = fgets($handle)) !== false) {
+            $lineNumber++;
+
+            if (!mb_check_encoding($line, 'UTF-8')) {
+                $line = mb_convert_encoding($line, 'UTF-8', 'Windows-1252');
+            }
+
+            $line = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', trim($line));
             if ($line === '' || $line === "''||''") continue;
 
             $fields = explode('|', $line);
@@ -115,8 +138,8 @@ class DeudaImportController extends Controller
             $mesAno = $rowData['MES_ANO'] ?? null;
             $periodo = null;
             if ($mesAno) {
-                try { $periodo = Carbon::parse($mesAno)->format('Y-m'); }
-                catch (\Exception $e) { $rowErrors[] = "MES_ANO invalido"; }
+                $periodo = $this->fastParsePeriodo($mesAno);
+                if (!$periodo) $rowErrors[] = "MES_ANO invalido";
             } else {
                 $rowErrors[] = "MES_ANO vacio";
             }
@@ -125,11 +148,13 @@ class DeudaImportController extends Controller
             $montoDeuda = is_numeric($montoDeudaRaw) ? (float) $montoDeudaRaw : 0;
 
             if (!empty($rowErrors)) {
-                $errors[] = [
-                    'line' => $lineNumber,
-                    'info' => "{$codEdif}/{$numApto}/{$periodo}",
-                    'reason' => implode(', ', $rowErrors),
-                ];
+                if (count($errors) < 200) {
+                    $errors[] = [
+                        'line' => $lineNumber,
+                        'info' => "{$codEdif}/{$numApto}/{$periodo}",
+                        'reason' => implode(', ', $rowErrors),
+                    ];
+                }
                 continue;
             }
 
@@ -139,8 +164,8 @@ class DeudaImportController extends Controller
                 'edificio_id' => $edificioId,
                 'apartamento_id' => $apartamentoId,
                 'periodo' => $periodo,
-                'fecha_emision' => $this->parseDate($mesAno) ?? now()->toDateString(),
-                'fecha_vencimiento' => $this->parseDate($mesAno) ?? now()->toDateString(),
+                'fecha_emision' => $this->fastParseDate($mesAno),
+                'fecha_vencimiento' => $this->fastParseDate($mesAno),
                 'monto_original' => $montoDeuda,
                 'saldo' => $montoDeuda,
                 'estatus' => $montoDeuda > 0 ? 'P' : 'C',
@@ -152,117 +177,226 @@ class DeudaImportController extends Controller
                 if ($value === null) { $mapped[$targetCol] = null; continue; }
 
                 if ($targetCol === 'legacy_created_at' || $targetCol === 'legacy_updated_at') {
-                    $mapped[$targetCol] = $this->parseDateTime($value);
+                    $mapped[$targetCol] = $this->fastParseDateTime($value);
                 } elseif ($targetCol === 'fecha_pag') {
-                    $mapped[$targetCol] = $this->parseDate($value);
+                    $mapped[$targetCol] = $this->fastParseDate($value);
                 } elseif (in_array($targetCol, $this->decimalFields)) {
                     $mapped[$targetCol] = is_numeric($value) ? (float) $value : null;
                 } else {
-                    $mapped[$targetCol] = $value;
+                    $mapped[$targetCol] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
                 }
             }
 
-            foreach ($mapped as $key => $val) {
-                if (is_string($val)) $mapped[$key] = $this->sanitizeString($val);
-            }
+            // Write to temp file (one serialized row per line)
+            fwrite($tempHandle, json_encode($mapped, JSON_UNESCAPED_UNICODE) . "\n");
+            $validCount++;
 
-            $rows[] = [
-                'line' => $lineNumber,
-                'display' => [
-                    'cod_edif' => $codEdif,
-                    'num_apto' => $numApto,
-                    'periodo' => $periodo,
-                    'monto' => number_format($montoDeuda, 2, ',', '.'),
-                    'serial' => $rowData['SERIAL'] ?? '',
-                ],
-                'data' => $mapped,
-            ];
+            // Collect preview rows (first 50 only)
+            if (count($rows) < 50) {
+                $rows[] = [
+                    'line' => $lineNumber,
+                    'display' => [
+                        'cod_edif' => $codEdif,
+                        'num_apto' => $numApto,
+                        'periodo' => $periodo,
+                        'monto' => number_format($montoDeuda, 2, ',', '.'),
+                        'serial' => $rowData['SERIAL'] ?? '',
+                    ],
+                ];
+            }
         }
 
-        // Store valid rows in temp file (session can't handle large arrays)
-        $tempPath = storage_path('app/import_deudas_' . auth()->id() . '.json');
-        file_put_contents($tempPath, json_encode($rows));
+        fclose($handle);
+        fclose($tempHandle);
 
         $totalActual = CondDeudaApto::count();
 
         $summary = [
-            'total_archivo' => count($rows) + count($errors),
-            'validas' => count($rows),
+            'total_archivo' => $validCount + count($errors),
+            'validas' => $validCount,
             'errores' => count($errors),
             'total_actual_bd' => $totalActual,
         ];
 
-        // Only pass first 50 rows for preview display
-        $previewRows = array_slice($rows, 0, 50);
+        $previewRows = $rows;
 
         return view('financiero.deudas-importar', compact('summary', 'previewRows', 'errors'));
     }
 
     public function execute(Request $request)
     {
-        $tempPath = storage_path('app/import_deudas_' . auth()->id() . '.json');
+        set_time_limit(600);
+
+        $tempPath = storage_path('app/import_deudas_' . auth()->id() . '.bin');
 
         if (!file_exists($tempPath)) {
             return redirect()->route('financiero.deudas.importar')
                 ->with('error', 'No hay datos. Suba el archivo nuevamente.');
         }
 
-        $rows = json_decode(file_get_contents($tempPath), true);
-
-        if (empty($rows)) {
-            @unlink($tempPath);
-            return redirect()->route('financiero.deudas.importar')
-                ->with('error', 'El archivo no contiene filas validas.');
-        }
-
         $results = ['imported' => 0, 'previous_count' => 0, 'errors' => []];
         $results['previous_count'] = CondDeudaApto::count();
 
+        // Truncate table
         try {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
             DB::table('cond_deudas_apto')->truncate();
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
         } catch (\Exception $e) {
-            @unlink($tempPath ?? ($tp ?? ''));
-            return redirect()->route('financiero.deudas.importar')->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
+            @unlink($tempPath);
+            return redirect()->route('financiero.deudas.importar')
+                ->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
         }
 
+        // Stream from temp file and batch insert
+        $handle = fopen($tempPath, 'r');
+        $batch = [];
+        $batchSize = 1000;
         $now = now()->toDateTimeString();
-        foreach ($rows as $row) {
-            $data = array_filter($row['data'], fn($v) => $v !== null);
-            $data['created_at'] = $now;
-            $data['updated_at'] = $now;
-            try {
-                DB::table('cond_deudas_apto')->insert($data);
-                $results['imported']++;
-            } catch (\Exception $e) {
-                $results['errors'][] = [
-                    'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
-                    'reason' => $e->getMessage(),
-                ];
+
+        DB::beginTransaction();
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') continue;
+
+                $data = json_decode($line, true);
+                if (!$data) continue;
+
+                // Remove null values and add timestamps
+                $data = array_filter($data, fn($v) => $v !== null);
+                $data['created_at'] = $now;
+                $data['updated_at'] = $now;
+
+                $batch[] = $data;
+
+                if (count($batch) >= $batchSize) {
+                    $this->insertBatch($batch, $results);
+                    $batch = [];
+                }
             }
+
+            // Insert remaining rows
+            if (!empty($batch)) {
+                $this->insertBatch($batch, $results);
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            fclose($handle);
+            @unlink($tempPath);
+            return redirect()->route('financiero.deudas.importar')
+                ->with('error', 'Error durante la importacion: ' . $e->getMessage());
         }
 
+        fclose($handle);
         @unlink($tempPath);
 
         return view('financiero.deudas-importar', ['results' => $results]);
     }
 
-    private function parseDateTime(?string $value): ?string
+    /**
+     * Insert a batch of rows. All rows must have the same columns for bulk insert.
+     */
+    private function insertBatch(array &$batch, array &$results): void
     {
-        if (!$value) return null;
-        try { return Carbon::createFromFormat('Y/m/d H:i', $value)->toDateTimeString(); }
-        catch (\Exception $e) {
-            try { return Carbon::parse($value)->toDateTimeString(); }
-            catch (\Exception $e) { return null; }
+        if (empty($batch)) return;
+
+        // Normalize: ensure all rows have the same keys
+        $allKeys = [];
+        foreach ($batch as $row) {
+            foreach (array_keys($row) as $k) {
+                $allKeys[$k] = true;
+            }
+        }
+        $allKeys = array_keys($allKeys);
+
+        $normalized = [];
+        foreach ($batch as $row) {
+            $normalizedRow = [];
+            foreach ($allKeys as $key) {
+                $normalizedRow[$key] = $row[$key] ?? null;
+            }
+            $normalized[] = $normalizedRow;
+        }
+
+        try {
+            DB::table('cond_deudas_apto')->insert($normalized);
+            $results['imported'] += count($normalized);
+        } catch (\Exception $e) {
+            // Fallback: insert one by one to identify bad rows
+            foreach ($normalized as $row) {
+                try {
+                    DB::table('cond_deudas_apto')->insert($row);
+                    $results['imported']++;
+                } catch (\Exception $e2) {
+                    if (count($results['errors']) < 50) {
+                        $results['errors'][] = [
+                            'info' => ($row['cod_edif_legacy'] ?? '') . '/' . ($row['num_apto_legacy'] ?? ''),
+                            'reason' => $e2->getMessage(),
+                        ];
+                    }
+                }
+            }
         }
     }
 
-    private function parseDate(?string $value): ?string
+    /**
+     * Fast date parsing without Carbon overhead.
+     * Supports: Y/m/d, Y-m-d, d/m/Y
+     */
+    private function fastParseDate(?string $value): ?string
     {
-        if (!$value) return null;
-        try { return Carbon::createFromFormat('Y/m/d', $value)->toDateString(); }
-        catch (\Exception $e) {
-            try { return Carbon::parse($value)->toDateString(); }
-            catch (\Exception $e) { return null; }
+        if (!$value || $value === 'NULL') return null;
+        $value = trim($value);
+
+        // Y/m/d or Y-m-d (most common in this dataset)
+        if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
         }
+        // d/m/Y
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
+        }
+        return null;
+    }
+
+    /**
+     * Fast datetime parsing without Carbon overhead.
+     */
+    private function fastParseDateTime(?string $value): ?string
+    {
+        if (!$value || $value === 'NULL') return null;
+        $value = trim($value);
+
+        // Y/m/d H:i or Y/m/d H:i:s
+        if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d %02d:%02d:%02d', $m[1], $m[2], $m[3], $m[4], $m[5], $m[6] ?? 0);
+        }
+        return $this->fastParseDate($value) ? $this->fastParseDate($value) . ' 00:00:00' : null;
+    }
+
+    /**
+     * Fast periodo parsing: MES_ANO → Y-m
+     */
+    private function fastParsePeriodo(?string $value): ?string
+    {
+        if (!$value || $value === 'NULL') return null;
+        $value = trim($value);
+
+        // Y/m/d or Y-m-d
+        if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/', $value, $m)) {
+            return sprintf('%04d-%02d', $m[1], $m[2]);
+        }
+        // d/m/Y
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $value, $m)) {
+            return sprintf('%04d-%02d', $m[3], $m[2]);
+        }
+        // Y/m only
+        if (preg_match('/^(\d{4})[\/\-](\d{1,2})$/', $value, $m)) {
+            return sprintf('%04d-%02d', $m[1], $m[2]);
+        }
+        return null;
     }
 }

@@ -51,14 +51,8 @@ class UserSeeder extends Seeder
                 'email_verified_at' => now(),
                 'role' => 'proveedor',
             ],
-            [
-                'name' => 'Cliente Propietario',
-                'email' => 'cliente@test.com',
-                'password' => Hash::make('password'),
-                'activo' => true,
-                'email_verified_at' => now(),
-                'role' => 'cliente-propietario',
-            ],
+            // cliente-propietario users are now created by PropietarioSeeder
+            // with each propietario's own email and linked user_id
             [
                 'name' => 'Agente Cobranza',
                 'email' => 'cobranza@test.com',
@@ -79,13 +73,6 @@ class UserSeeder extends Seeder
             );
 
             $user->assignRole($role);
-        }
-
-        // Vincular usuario cliente con el primer propietario
-        $clienteUser = User::where('email', 'cliente@test.com')->first();
-        $propietario = \App\Models\Condominio\Propietario::first();
-        if ($clienteUser && $propietario) {
-            $propietario->update(['user_id' => $clienteUser->id]);
         }
 
         // Vincular usuario proveedor con el primer proveedor

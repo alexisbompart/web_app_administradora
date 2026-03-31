@@ -3,7 +3,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-2xl font-heading font-bold text-navy-800">Importar Tasas BCV</h2>
-                <p class="text-sm text-slate_custom-400 mt-1">Carga del archivo cond_tasa_bcv.csv</p>
+                <p class="text-sm text-slate_custom-400 mt-1">Carga completa — reemplaza todas las tasas existentes</p>
             </div>
             <a href="{{ route('financiero.tasabcv.index') }}" class="btn-secondary"><i class="fas fa-arrow-left mr-2"></i>Volver</a>
         </div>
@@ -21,9 +21,12 @@
         <div class="card-header"><h3 class="text-sm font-heading font-semibold text-navy-800"><i class="fas fa-check-circle mr-2 text-green-600"></i>Importacion Completada</h3></div>
         <div class="card-body">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="stat-card"><div class="stat-label">Insertados</div><div class="stat-value text-green-600">{{ $results['insertados'] }}</div></div>
-                <div class="stat-card"><div class="stat-label">Actualizados</div><div class="stat-value text-blue-600">{{ $results['actualizados'] }}</div></div>
-                <div class="stat-card"><div class="stat-label">Total Procesados</div><div class="stat-value text-navy-800">{{ $results['total_procesados'] }}</div></div>
+                <div class="stat-card"><div class="stat-label">Anteriores Eliminados</div><div class="stat-value text-amber-600">{{ number_format($results['previous_count']) }}</div></div>
+                <div class="stat-card"><div class="stat-label">Nuevos Importados</div><div class="stat-value text-green-600">{{ number_format($results['imported']) }}</div></div>
+                <div class="stat-card"><div class="stat-label">Total en BD</div><div class="stat-value text-navy-800">{{ number_format($results['imported']) }}</div></div>
+            </div>
+            <div class="mt-3 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
+                <i class="fas fa-check-circle"></i>Carga completa. {{ number_format($results['previous_count']) }} anteriores eliminados, {{ number_format($results['imported']) }} nuevos importados.
             </div>
             <div class="mt-4">
                 <a href="{{ route('financiero.tasabcv.index') }}" class="btn-primary"><i class="fas fa-list mr-2"></i>Ver Tasas</a>
@@ -45,10 +48,14 @@
                 <div class="stat-card"><div class="stat-label">Hasta</div><div class="stat-value text-sm">{{ $summary['fecha_max'] }}</div></div>
             </div>
 
+            <div class="bg-amber-50 border border-amber-300 text-amber-800 px-5 py-4 rounded-xl mb-4">
+                <div class="flex items-start gap-3"><i class="fas fa-exclamation-triangle text-xl mt-0.5"></i><div><p class="font-heading font-bold">Carga Completa — Se reemplazaran TODAS las tasas</p><p class="text-sm mt-1">Se eliminaran <strong>{{ number_format($summary['total_actual_bd']) }}</strong> tasas actuales y se insertaran <strong>{{ number_format($summary['validas']) }}</strong> nuevas.</p></div></div>
+            </div>
+
             @if($summary['validas'] > 0)
-            <form action="{{ route('financiero.tasabcv.importar.execute') }}" method="POST">
+            <form action="{{ route('financiero.tasabcv.importar.execute') }}" method="POST" onsubmit="return confirm('Se eliminaran {{ number_format($summary['total_actual_bd']) }} tasas actuales y se insertaran {{ number_format($summary['validas']) }} nuevas. Continuar?')">
                 @csrf
-                <button type="submit" class="btn-primary"><i class="fas fa-upload mr-2"></i>Ejecutar Importacion ({{ $summary['validas'] }} tasas)</button>
+                <button type="submit" class="btn-primary" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin mr-2\'></i>Procesando...'; this.form.submit();"><i class="fas fa-sync-alt mr-2"></i>Reemplazar Tasas ({{ $summary['validas'] }})</button>
             </form>
             @endif
         </div>

@@ -4,15 +4,14 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 use App\Models\Condominio\Propietario;
 use App\Models\Condominio\Apartamento;
 use App\Models\Condominio\Edificio;
 
 class PropietarioSeeder extends Seeder
 {
-    /**
-     * Seed the propietarios table with Venezuelan owners.
-     */
     public function run(): void
     {
         $propietarios = [
@@ -36,11 +35,31 @@ class PropietarioSeeder extends Seeder
         $createdPropietarios = [];
 
         foreach ($propietarios as $data) {
+            // Crear usuario para el propietario
+            $user = User::firstOrCreate(
+                ['email' => $data['email']],
+                [
+                    'name' => $data['nombres'] . ' ' . $data['apellidos'],
+                    'email' => $data['email'],
+                    'password' => Hash::make('password'),
+                    'cedula' => $data['cedula'],
+                    'telefono' => $data['celular'],
+                    'activo' => true,
+                    'email_verified_at' => now(),
+                ]
+            );
+
+            if (!$user->hasRole('cliente-propietario')) {
+                $user->assignRole('cliente-propietario');
+            }
+
+            // Crear propietario vinculado al usuario
             $createdPropietarios[] = Propietario::updateOrCreate(
                 ['cedula' => $data['cedula']],
                 array_merge($data, [
                     'direccion' => 'Caracas, Venezuela',
                     'estatus'   => true,
+                    'user_id'   => $user->id,
                 ])
             );
         }

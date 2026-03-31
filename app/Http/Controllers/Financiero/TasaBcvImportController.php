@@ -40,7 +40,6 @@ class TasaBcvImportController extends Controller
             $tasa      = trim($cols[1], '" ');
             $createdAt = trim($cols[2], '" ');
 
-            // Extract date from datetime
             $fecha = substr($createdAt, 0, 10);
 
             if (!is_numeric($tasa) || (float) $tasa <= 0) {
@@ -70,6 +69,7 @@ class TasaBcvImportController extends Controller
             'duplicadas'    => count($rows) - $unique->count(),
             'fecha_min'     => $unique->min('fecha'),
             'fecha_max'     => $unique->max('fecha'),
+            'total_actual_bd' => TasaBcv::count(),
         ];
 
         session(['tasabcv_import_data' => $unique->toArray()]);
@@ -85,34 +85,44 @@ class TasaBcvImportController extends Controller
                 ->with('error', 'No hay datos en sesion. Suba el archivo nuevamente.');
         }
 
+        $previousCount = TasaBcv::count();
         $inserted = 0;
-        $updated  = 0;
 
-        DB::transaction(function () use ($data, &$inserted, &$updated) {
+        DB::transaction(function () use ($data, &$inserted) {
+            // Carga completa: truncar y recargar
+            DB::table('cond_tasas_bcv')->truncate();
+
+            $now = now()->toDateTimeString();
+            $batch = [];
+
             foreach ($data as $row) {
-                $existing = TasaBcv::where('fecha', $row['fecha'])->where('moneda', 'USD')->first();
+                $batch[] = [
+                    'fecha'      => $row['fecha'],
+                    'moneda'     => 'USD',
+                    'tasa'       => $row['tasa'],
+                    'fuente'     => 'BCV',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
 
-                if ($existing) {
-                    $existing->update(['tasa' => $row['tasa'], 'fuente' => 'BCV']);
-                    $updated++;
-                } else {
-                    TasaBcv::create([
-                        'fecha'  => $row['fecha'],
-                        'moneda' => 'USD',
-                        'tasa'   => $row['tasa'],
-                        'fuente' => 'BCV',
-                    ]);
-                    $inserted++;
+                if (count($batch) >= 500) {
+                    DB::table('cond_tasas_bcv')->insert($batch);
+                    $inserted += count($batch);
+                    $batch = [];
                 }
+            }
+
+            if (!empty($batch)) {
+                DB::table('cond_tasas_bcv')->insert($batch);
+                $inserted += count($batch);
             }
         });
 
         session()->forget('tasabcv_import_data');
 
         $results = [
-            'insertados' => $inserted,
-            'actualizados' => $updated,
-            'total_procesados' => $inserted + $updated,
+            'previous_count' => $previousCount,
+            'imported' => $inserted,
         ];
 
         return view('financiero.tasabcv-importar', compact('results'));

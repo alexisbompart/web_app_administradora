@@ -35,6 +35,9 @@ class DatabaseSeeder extends Seeder
 
             // 6. Datos de demostración
             DatosDemoSeeder::class,
+
+            // 7. Contenido pagina Welcome
+            WelcomeContentSeeder::class,
         ]);
     }
 }

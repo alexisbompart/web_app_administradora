@@ -9,13 +9,13 @@ use App\Models\Condominio\Compania;
 use App\Models\Condominio\Edificio;
 use App\Models\Financiero\CondGasto;
 use App\Models\Financiero\CondMovPrefact;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MovPrefactImportController extends Controller
 {
     use ImportFileParser;
+
     private array $columnMap = [
         'A.AMPL_CONCEPTO'       => 'ampl_concepto',
         'APLICAR_GASTO_ADM'     => 'aplicar_gasto_adm',
@@ -66,11 +66,10 @@ class MovPrefactImportController extends Controller
     public function preview(Request $request)
     {
         $request->validate(['archivo' => 'required|file|max:102400']);
+        set_time_limit(300);
 
         $file = $request->file('archivo');
-        $lines = $this->readFileLines($file);
-        $headerFields = $this->parseHeader($lines[0]);
-        $headerIndex = $this->buildHeaderIndex($headerFields);
+        $filePath = $file->getRealPath();
 
         $companias = Compania::pluck('id', 'cod_compania')->toArray();
         $edificios = Edificio::pluck('id', 'cod_edif')->toArray();
@@ -78,11 +77,29 @@ class MovPrefactImportController extends Controller
             ->get()->mapWithKeys(fn($a) => [$a->edificio_id . '_' . $a->num_apto => $a->id])->toArray();
         $gastos = CondGasto::pluck('id', 'cod_gasto')->toArray();
 
-        $rows = [];
-        $errors = [];
+        // Stream file
+        $handle = fopen($filePath, 'r');
+        $headerLine = fgets($handle);
+        if (!mb_check_encoding($headerLine, 'UTF-8')) {
+            $headerLine = mb_convert_encoding($headerLine, 'UTF-8', 'Windows-1252');
+        }
+        $headerFields = $this->parseHeader($headerLine);
+        $headerIndex = $this->buildHeaderIndex($headerFields);
 
-        for ($lineNumber = 2; $lineNumber <= count($lines); $lineNumber++) {
-            $line = trim($lines[$lineNumber - 1]);
+        $previewRows = [];
+        $errors = [];
+        $lineNumber = 1;
+        $validCount = 0;
+
+        $tempPath = storage_path('app/import_movprefact_' . auth()->id() . '.bin');
+        $tempHandle = fopen($tempPath, 'w');
+
+        while (($line = fgets($handle)) !== false) {
+            $lineNumber++;
+            if (!mb_check_encoding($line, 'UTF-8')) {
+                $line = mb_convert_encoding($line, 'UTF-8', 'Windows-1252');
+            }
+            $line = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', trim($line));
             if ($line === '' || $line === "''||''") continue;
 
             $fields = explode('|', $line);
@@ -114,15 +131,17 @@ class MovPrefactImportController extends Controller
             }
 
             if (!empty($rowErrors)) {
-                $errors[] = ['line' => $lineNumber, 'info' => "{$codEdif}/{$numApto}/{$codGasto}", 'reason' => implode(', ', $rowErrors)];
+                if (count($errors) < 200) {
+                    $errors[] = ['line' => $lineNumber, 'info' => "{$codEdif}/{$numApto}/{$codGasto}", 'reason' => implode(', ', $rowErrors)];
+                }
                 continue;
             }
 
             $montoRaw = $rowData['MONTO#'] ?? $rowData['MONTO'] ?? null;
             $monto = is_numeric($montoRaw) ? (float) $montoRaw : 0;
 
-            $fechaContable = $this->parseDate($rowData['FECHA_CONTABLE'] ?? null);
-            $periodo = $fechaContable ? Carbon::parse($fechaContable)->format('Y-m') : now()->format('Y-m');
+            $fechaContable = $this->fastParseDate($rowData['FECHA_CONTABLE'] ?? null);
+            $periodo = $fechaContable ? substr($fechaContable, 0, 7) : now()->format('Y-m');
 
             $mapped = [
                 'compania_id' => $companiaId,
@@ -137,104 +156,166 @@ class MovPrefactImportController extends Controller
                 'estatus' => ($rowData['PROCESADO'] ?? 'N') === 'S' ? 'F' : 'P',
             ];
 
-            // Map all legacy fields
             foreach ($this->columnMap as $sourceCol => $targetCol) {
                 if (str_starts_with($targetCol, '_')) continue;
                 $value = $rowData[$sourceCol] ?? null;
                 if ($value === null) { $mapped[$targetCol] = null; continue; }
 
                 if ($targetCol === 'legacy_created_at' || $targetCol === 'legacy_updated_at') {
-                    $mapped[$targetCol] = $this->parseDateTime($value);
+                    $mapped[$targetCol] = $this->fastParseDateTime($value);
                 } elseif ($targetCol === 'fecha_contable' || $targetCol === 'fecha_fact') {
-                    $mapped[$targetCol] = $this->parseDate($value);
+                    $mapped[$targetCol] = $this->fastParseDate($value);
                 } elseif ($targetCol === 'cuota' || $targetCol === 'mov_id') {
                     $mapped[$targetCol] = is_numeric($value) ? (int) $value : null;
                 } else {
-                    $mapped[$targetCol] = $value;
+                    $mapped[$targetCol] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
                 }
             }
 
-            foreach ($mapped as $key => $val) {
-                if (is_string($val)) $mapped[$key] = $this->sanitizeString($val);
-            }
+            fwrite($tempHandle, json_encode($mapped, JSON_UNESCAPED_UNICODE) . "\n");
+            $validCount++;
 
-            $rows[] = [
-                'line' => $lineNumber,
-                'display' => [
-                    'cod_edif' => $codEdif, 'num_apto' => $numApto,
-                    'cod_gasto' => $codGasto, 'monto' => number_format($monto, 2, ',', '.'),
-                    'origen' => $rowData['ORIGEN'] ?? '', 'mov_id' => $rowData['MOV_ID'] ?? '',
-                ],
-                'data' => $mapped,
-            ];
+            if (count($previewRows) < 50) {
+                $previewRows[] = [
+                    'line' => $lineNumber,
+                    'display' => [
+                        'cod_edif' => $codEdif, 'num_apto' => $numApto,
+                        'cod_gasto' => $codGasto, 'monto' => number_format($monto, 2, ',', '.'),
+                        'origen' => $rowData['ORIGEN'] ?? '', 'mov_id' => $rowData['MOV_ID'] ?? '',
+                    ],
+                ];
+            }
         }
 
-        $tempPath = storage_path('app/import_movprefact_' . auth()->id() . '.json');
-        file_put_contents($tempPath, json_encode($rows));
+        fclose($handle);
+        fclose($tempHandle);
 
         $totalActual = CondMovPrefact::count();
         $summary = [
-            'total_archivo' => count($rows) + count($errors),
-            'validas' => count($rows),
+            'total_archivo' => $validCount + count($errors),
+            'validas' => $validCount,
             'errores' => count($errors),
             'total_actual_bd' => $totalActual,
         ];
-        $previewRows = array_slice($rows, 0, 50);
 
         return view('financiero.movprefact-importar', compact('summary', 'previewRows', 'errors'));
     }
 
     public function execute(Request $request)
     {
-        $tempPath = storage_path('app/import_movprefact_' . auth()->id() . '.json');
+        set_time_limit(600);
+
+        $tempPath = storage_path('app/import_movprefact_' . auth()->id() . '.bin');
         if (!file_exists($tempPath)) {
             return redirect()->route('financiero.movprefact.importar')->with('error', 'No hay datos. Suba el archivo nuevamente.');
         }
 
-        $rows = json_decode(file_get_contents($tempPath), true);
-        if (empty($rows)) { @unlink($tempPath); return redirect()->route('financiero.movprefact.importar')->with('error', 'Sin filas validas.'); }
+        $results = ['imported' => 0, 'skipped' => 0, 'previous_count' => CondMovPrefact::count(), 'errors' => []];
 
-        $results = ['imported' => 0, 'previous_count' => 0, 'errors' => []];
-        $results['previous_count'] = CondMovPrefact::count();
-
-        try {
-            DB::table('cond_movimientos_prefact')->truncate();
-        } catch (\Exception $e) {
-            @unlink($tempPath ?? ($tp ?? ''));
-            return redirect()->route('financiero.movprefact.importar')->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
-        }
-
+        // Carga incremental: NO truncar, solo agregar nuevos registros
+        $handle = fopen($tempPath, 'r');
+        $batch = [];
+        $batchSize = 1000;
         $now = now()->toDateTimeString();
-        foreach ($rows as $row) {
-            $data = array_filter($row['data'], fn($v) => $v !== null);
-            $data['created_at'] = $now;
-            $data['updated_at'] = $now;
-            try {
-                DB::table('cond_movimientos_prefact')->insert($data);
-                $results['imported']++;
-            } catch (\Exception $e) {
-                $results['errors'][] = [
-                    'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
-                    'reason' => $e->getMessage(),
-                ];
+
+        DB::beginTransaction();
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') continue;
+
+                $data = json_decode($line, true);
+                if (!$data) continue;
+
+                $data = array_filter($data, fn($v) => $v !== null);
+                $data['created_at'] = $now;
+                $data['updated_at'] = $now;
+
+                $batch[] = $data;
+
+                if (count($batch) >= $batchSize) {
+                    $this->insertBatch($batch, $results);
+                    $batch = [];
+                }
             }
+
+            if (!empty($batch)) {
+                $this->insertBatch($batch, $results);
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            fclose($handle);
+            @unlink($tempPath);
+            return redirect()->route('financiero.movprefact.importar')
+                ->with('error', 'Error durante la importacion: ' . $e->getMessage());
         }
 
+        fclose($handle);
         @unlink($tempPath);
+
         return view('financiero.movprefact-importar', ['results' => $results]);
     }
 
-    private function parseDateTime(?string $value): ?string
+    private function insertBatch(array &$batch, array &$results): void
     {
-        if (!$value) return null;
-        try { return Carbon::createFromFormat('Y/m/d H:i', $value)->toDateTimeString(); }
-        catch (\Exception $e) { try { return Carbon::parse($value)->toDateTimeString(); } catch (\Exception $e) { return null; } }
+        if (empty($batch)) return;
+
+        $allKeys = [];
+        foreach ($batch as $row) {
+            foreach (array_keys($row) as $k) $allKeys[$k] = true;
+        }
+        $allKeys = array_keys($allKeys);
+
+        $normalized = [];
+        foreach ($batch as $row) {
+            $nr = [];
+            foreach ($allKeys as $key) $nr[$key] = $row[$key] ?? null;
+            $normalized[] = $nr;
+        }
+
+        try {
+            DB::table('cond_movimientos_prefact')->insert($normalized);
+            $results['imported'] += count($normalized);
+        } catch (\Exception $e) {
+            foreach ($normalized as $row) {
+                try {
+                    DB::table('cond_movimientos_prefact')->insert($row);
+                    $results['imported']++;
+                } catch (\Exception $e2) {
+                    if (count($results['errors']) < 50) {
+                        $results['errors'][] = [
+                            'info' => ($row['cod_edif_legacy'] ?? '') . '/' . ($row['num_apto_legacy'] ?? ''),
+                            'reason' => $e2->getMessage(),
+                        ];
+                    }
+                }
+            }
+        }
     }
 
-    private function parseDate(?string $value): ?string
+    private function fastParseDate(?string $value): ?string
     {
-        if (!$value) return null;
-        try { return Carbon::createFromFormat('Y/m/d', $value)->toDateString(); }
-        catch (\Exception $e) { try { return Carbon::parse($value)->toDateString(); } catch (\Exception $e) { return null; } }
+        if (!$value || $value === 'NULL') return null;
+        $value = trim($value);
+        if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+        }
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
+        }
+        return null;
+    }
+
+    private function fastParseDateTime(?string $value): ?string
+    {
+        if (!$value || $value === 'NULL') return null;
+        $value = trim($value);
+        if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/', $value, $m)) {
+            return sprintf('%04d-%02d-%02d %02d:%02d:%02d', $m[1], $m[2], $m[3], $m[4], $m[5], $m[6] ?? 0);
+        }
+        $d = $this->fastParseDate($value);
+        return $d ? $d . ' 00:00:00' : null;
     }
 }

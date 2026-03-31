@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
         <title>{{ $settings['titulo_sitio'] ?? config('app.name', 'Administradora Integral') }}</title>
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=poppins:400,500,600,700,800,900|rubik:400,500&display=swap" rel="stylesheet" />
@@ -381,8 +382,8 @@
                     </a>
 
                     <!-- Consultar -->
-                    <a href="{{ route('login') }}"
-                       class="action-card group relative bg-white rounded-3xl border border-slate_custom-200 overflow-hidden flex items-stretch fade-in">
+                    <button type="button" onclick="document.getElementById('modal-consulta-saldo').classList.remove('hidden')"
+                       class="action-card group relative bg-white rounded-3xl border border-slate_custom-200 overflow-hidden flex items-stretch fade-in text-left w-full">
                         <div class="w-1.5 bg-gradient-to-b from-navy-800 to-navy-600 flex-shrink-0"></div>
                         <div class="p-8 flex flex-col sm:flex-row items-start gap-5 flex-1">
                             <div class="w-16 h-16 bg-navy-800/8 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-navy-800 group-hover:scale-110 transition-all duration-400">
@@ -401,7 +402,7 @@
                                 </span>
                             </div>
                         </div>
-                    </a>
+                    </button>
                 </div>
 
                 <!-- Afiliacion CTA -->
@@ -664,6 +665,94 @@
 
 
         <!-- ══════════════════════════════════════
+             MODAL CONSULTA DE SALDO
+        ══════════════════════════════════════ -->
+        <div id="modal-consulta-saldo" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4" style="background:rgba(0,0,0,.55); backdrop-filter:blur(4px);">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative" onclick="event.stopPropagation()">
+                <!-- Header -->
+                <div class="sticky top-0 bg-gradient-to-r from-navy-800 to-burgundy-800 rounded-t-3xl px-8 py-6 flex items-center justify-between z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-search-dollar text-white text-lg"></i>
+                        </div>
+                        <h2 class="text-xl font-heading font-bold text-white">Consultar Su Saldo</h2>
+                    </div>
+                    <button type="button" onclick="cerrarModalConsulta()" class="w-9 h-9 bg-white/15 hover:bg-white/25 rounded-xl flex items-center justify-center transition">
+                        <i class="fas fa-times text-white"></i>
+                    </button>
+                </div>
+
+                <!-- Body -->
+                <div class="p-8">
+                    <!-- Instrucciones -->
+                    <p class="text-sm text-slate_custom-400 mb-6 leading-relaxed">
+                        Ingrese el codigo <strong class="text-navy-800">PINT</strong> del apartamento o la <strong class="text-navy-800">Cedula</strong> del propietario para consultar el estado de cuenta.
+                    </p>
+
+                    <!-- Formulario -->
+                    <form id="form-consulta-saldo" onsubmit="realizarConsulta(event)">
+                        <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                            <!-- Tipo de busqueda -->
+                            <div class="flex bg-slate_custom-100 rounded-2xl p-1 gap-1 flex-shrink-0">
+                                <button type="button" id="btn-tipo-pint" onclick="cambiarTipoBusqueda('pint')"
+                                    class="px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wide transition-all duration-300 bg-navy-800 text-white">
+                                    <i class="fas fa-barcode mr-1"></i> PINT
+                                </button>
+                                <button type="button" id="btn-tipo-cedula" onclick="cambiarTipoBusqueda('cedula')"
+                                    class="px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wide transition-all duration-300 text-slate_custom-400 hover:text-navy-800">
+                                    <i class="fas fa-id-card mr-1"></i> Cedula
+                                </button>
+                            </div>
+                            <input type="hidden" name="tipo_busqueda" id="tipo_busqueda" value="pint">
+
+                            <!-- Campo de busqueda -->
+                            <div class="flex-1 flex gap-3">
+                                <div class="flex-1 relative">
+                                    <input type="text" name="valor" id="valor_consulta" required
+                                        placeholder="Ingrese codigo PINT"
+                                        class="w-full px-5 py-3 bg-slate_custom-100 border-2 border-transparent rounded-2xl text-sm text-navy-800 font-body placeholder-slate_custom-300 focus:border-navy-800 focus:bg-white outline-none transition">
+                                </div>
+                                <button type="submit" id="btn-consultar"
+                                    class="px-6 py-3 bg-gradient-to-r from-navy-800 to-burgundy-800 text-white text-sm font-heading font-bold rounded-2xl hover:opacity-90 transition shadow-lg flex items-center gap-2 flex-shrink-0">
+                                    <i class="fas fa-search"></i>
+                                    <span class="hidden sm:inline">Consultar</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Loading -->
+                    <div id="consulta-loading" class="hidden text-center py-10">
+                        <div class="inline-flex items-center gap-3 text-navy-800">
+                            <svg class="animate-spin w-6 h-6" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span class="text-sm font-heading font-semibold">Consultando...</span>
+                        </div>
+                    </div>
+
+                    <!-- Error -->
+                    <div id="consulta-error" class="hidden">
+                        <div class="bg-red-50 border border-red-200 rounded-2xl p-5 flex items-start gap-3">
+                            <div class="w-9 h-9 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-exclamation-circle text-red-500"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-heading font-bold text-red-700">No se encontraron resultados</p>
+                                <p class="text-xs text-red-500 mt-1" id="consulta-error-msg"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resultados -->
+                    <div id="consulta-resultados" class="hidden space-y-6"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════
              SCRIPTS
         ══════════════════════════════════════ -->
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -798,6 +887,175 @@
                 }
             });
         });
+
+        // ── CONSULTA DE SALDO ─────────────────────
+        function cambiarTipoBusqueda(tipo) {
+            document.getElementById('tipo_busqueda').value = tipo;
+            var btnPint = document.getElementById('btn-tipo-pint');
+            var btnCedula = document.getElementById('btn-tipo-cedula');
+            var input = document.getElementById('valor_consulta');
+
+            if (tipo === 'pint') {
+                btnPint.className = 'px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wide transition-all duration-300 bg-navy-800 text-white';
+                btnCedula.className = 'px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wide transition-all duration-300 text-slate_custom-400 hover:text-navy-800';
+                input.placeholder = 'Ingrese codigo PINT';
+            } else {
+                btnCedula.className = 'px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wide transition-all duration-300 bg-navy-800 text-white';
+                btnPint.className = 'px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wide transition-all duration-300 text-slate_custom-400 hover:text-navy-800';
+                input.placeholder = 'Ingrese numero de cedula';
+            }
+        }
+
+        function cerrarModalConsulta() {
+            document.getElementById('modal-consulta-saldo').classList.add('hidden');
+            document.getElementById('consulta-resultados').classList.add('hidden');
+            document.getElementById('consulta-error').classList.add('hidden');
+            document.getElementById('consulta-loading').classList.add('hidden');
+        }
+
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modal-consulta-saldo').addEventListener('click', function(e) {
+            if (e.target === this) cerrarModalConsulta();
+        });
+
+        function realizarConsulta(e) {
+            e.preventDefault();
+            var form = document.getElementById('form-consulta-saldo');
+            var loading = document.getElementById('consulta-loading');
+            var error = document.getElementById('consulta-error');
+            var resultados = document.getElementById('consulta-resultados');
+            var btn = document.getElementById('btn-consultar');
+
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            resultados.classList.add('hidden');
+            btn.disabled = true;
+
+            var formData = new FormData(form);
+            var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            fetch('{{ route("consulta.saldo.publica") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    tipo_busqueda: formData.get('tipo_busqueda'),
+                    valor: formData.get('valor'),
+                }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                loading.classList.add('hidden');
+                btn.disabled = false;
+
+                if (!data.success) {
+                    document.getElementById('consulta-error-msg').textContent = data.message;
+                    error.classList.remove('hidden');
+                    return;
+                }
+
+                resultados.innerHTML = renderResultados(data);
+                resultados.classList.remove('hidden');
+            })
+            .catch(function() {
+                loading.classList.add('hidden');
+                btn.disabled = false;
+                document.getElementById('consulta-error-msg').textContent = 'Error de conexion. Intente nuevamente.';
+                error.classList.remove('hidden');
+            });
+        }
+
+        function renderResultados(data) {
+            var html = '';
+
+            data.resultados.forEach(function(r) {
+                // Info del inmueble
+                html += '<div class="bg-slate_custom-100/60 rounded-2xl p-5 border border-slate_custom-200">';
+                html += '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">';
+                html += '<div class="text-center sm:text-left">';
+                html += '<p class="text-[10px] text-slate_custom-400 uppercase tracking-wide font-semibold mb-1">Nombre Inmueble</p>';
+                html += '<p class="text-sm font-heading font-bold text-navy-800">' + r.edificio + '</p>';
+                html += '</div>';
+                html += '<div class="text-center sm:text-right">';
+                html += '<p class="text-[10px] text-slate_custom-400 uppercase tracking-wide font-semibold mb-1">Unidad</p>';
+                html += '<p class="text-sm font-heading font-bold text-navy-800">' + r.unidad + '</p>';
+                html += '</div>';
+                html += '</div>';
+
+                // Tasa BCV
+                html += '<div class="bg-gradient-to-r from-navy-800 to-navy-700 rounded-xl px-5 py-3 flex items-center justify-between">';
+                html += '<span class="text-white/70 text-xs font-heading font-semibold uppercase tracking-wide">Tasa del BCV de hoy</span>';
+                html += '<span class="text-white font-heading font-bold text-sm">' + data.tasa_bcv + '</span>';
+                html += '</div>';
+
+                // Si es extrajudicial: solo mostrar alerta, NO la tabla
+                if (r.extrajudicial) {
+                    html += '<div class="mt-4 bg-red-50 border-2 border-red-400 rounded-2xl p-6">';
+                    html += '<div class="flex items-start gap-4">';
+                    html += '<div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center flex-shrink-0">';
+                    html += '<i class="fas fa-gavel text-red-600 text-2xl"></i>';
+                    html += '</div>';
+                    html += '<div class="flex-1">';
+                    html += '<p class="text-base font-heading font-bold text-red-700 mb-2">COBRANZA EXTRAJUDICIAL</p>';
+                    html += '<p class="text-sm text-red-600 leading-relaxed">';
+                    html += 'Usted se encuentra en cobranza Extrajudicial, debido a una deuda de <strong>Bs. ' + r.deuda_total + '</strong> ';
+                    html += 'correspondiente a <strong>' + r.cantidad_pendientes + ' meses</strong>. ';
+                    html += 'Favor comunicarse con el Departamento de Cobranzas.</p>';
+                    html += '<div class="mt-4 flex flex-col sm:flex-row gap-3">';
+                    html += '<a href="mailto:cobranzasintegralelb@gmail.com" class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-heading font-bold rounded-xl transition">';
+                    html += '<i class="fas fa-envelope"></i> cobranzasintegralelb@gmail.com</a>';
+                    html += '<span class="inline-flex items-center gap-2 px-4 py-2.5 bg-red-100 text-red-700 text-xs font-heading font-bold rounded-xl">';
+                    html += '<i class="fas fa-phone"></i> 0212-9515611 Ext. 413</span>';
+                    html += '</div>';
+                    html += '</div>';
+                    html += '</div>';
+                    html += '</div>';
+                } else {
+                    // Tabla de deudas (ultimos 4 meses)
+                    html += '<div class="mt-4">';
+                    html += '<h3 class="text-base font-heading font-bold text-navy-800 mb-3 text-center">Estado de Cuenta</h3>';
+                    html += '<div class="overflow-x-auto rounded-xl border border-slate_custom-200">';
+                    html += '<table class="w-full text-xs">';
+                    html += '<thead><tr class="bg-gradient-to-r from-navy-800 to-navy-700 text-white">';
+                    html += '<th class="px-3 py-2.5 text-left font-heading font-semibold">Fecha</th>';
+                    html += '<th class="px-3 py-2.5 text-right font-heading font-semibold">Monto</th>';
+                    html += '<th class="px-3 py-2.5 text-right font-heading font-semibold">Ref.</th>';
+                    html += '<th class="px-3 py-2.5 text-right font-heading font-semibold">Abono</th>';
+                    html += '<th class="px-3 py-2.5 text-right font-heading font-semibold">Total</th>';
+                    html += '<th class="px-3 py-2.5 text-center font-heading font-semibold">Fecha Pago</th>';
+                    html += '<th class="px-3 py-2.5 text-center font-heading font-semibold">Estatus</th>';
+                    html += '<th class="px-3 py-2.5 text-center font-heading font-semibold">Comprobante</th>';
+                    html += '</tr></thead><tbody>';
+
+                    r.deudas.forEach(function(d, idx) {
+                        var rowClass = idx % 2 === 0 ? 'bg-white' : 'bg-slate_custom-50';
+                        var statusClass = d.estatus === 'PAGADO'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-red-100 text-red-700';
+
+                        html += '<tr class="' + rowClass + ' border-b border-slate_custom-100 hover:bg-slate_custom-100/50">';
+                        html += '<td class="px-3 py-2.5">' + (d.periodo || '') + '</td>';
+                        html += '<td class="px-3 py-2.5 text-right">' + d.monto + ' Bs</td>';
+                        html += '<td class="px-3 py-2.5 text-right text-burgundy-800 font-semibold" title="Tasa: ' + d.tasa_usada + '">' + d.monto_ref + ' $</td>';
+                        html += '<td class="px-3 py-2.5 text-right">' + d.abono + ' Bs</td>';
+                        html += '<td class="px-3 py-2.5 text-right font-semibold">' + d.total + ' Bs</td>';
+                        html += '<td class="px-3 py-2.5 text-center">' + (d.fecha_pago || '-') + '</td>';
+                        html += '<td class="px-3 py-2.5 text-center"><span class="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold ' + statusClass + '">' + d.estatus + '</span></td>';
+                        html += '<td class="px-3 py-2.5 text-center text-navy-800 font-semibold">' + (d.comprobante || '-') + '</td>';
+                        html += '</tr>';
+                    });
+
+                    html += '</tbody></table></div></div>';
+                }
+
+                html += '</div>';
+            });
+
+            return html;
+        }
         </script>
     </body>
 </html>

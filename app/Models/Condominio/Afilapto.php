@@ -14,6 +14,7 @@ class Afilapto extends Model
         'apartamento_id',
         'edificio_id',
         'compania_id',
+        'cod_pint',
         'estatus_afil',
         'fecha_afiliacion',
         'observaciones',

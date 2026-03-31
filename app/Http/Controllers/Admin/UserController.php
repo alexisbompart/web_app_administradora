@@ -43,7 +43,7 @@ class UserController extends Controller
             'cedula'         => 'nullable|string|max:20',
             'telefono'       => 'nullable|string|max:20',
             'activo'         => 'nullable|boolean',
-            'apartamento_id' => 'nullable|exists:apartamentos,id',
+            'apartamento_id' => 'nullable|exists:cond_aptos,id',
         ]);
 
         $user = DB::transaction(function () use ($validated) {
@@ -118,7 +118,7 @@ class UserController extends Controller
             'cedula'         => 'nullable|string|max:20',
             'telefono'       => 'nullable|string|max:20',
             'activo'         => 'nullable|boolean',
-            'apartamento_id' => 'nullable|exists:apartamentos,id',
+            'apartamento_id' => 'nullable|exists:cond_aptos,id',
         ]);
 
         $dataToUpdate = collect($validated)->except(['password', 'role', 'apartamento_id'])->toArray();
@@ -200,7 +200,7 @@ class UserController extends Controller
             'apellidos' => $parts[1] ?? '',
             'email'     => $user->email,
             'telefono'  => $user->telefono,
-            'estatus'   => 'A',
+            'estatus'   => true,
         ]);
     }
 }
