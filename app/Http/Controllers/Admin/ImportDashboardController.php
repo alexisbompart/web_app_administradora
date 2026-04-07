@@ -44,7 +44,7 @@ class ImportDashboardController extends Controller
                 'color' => 'purple',
                 'ruta_import' => 'financiero.descuentos.importar',
                 'ruta_listado' => 'financiero.descuentos.index',
-                'tipo' => 'Carga Completa',
+                'tipo' => 'Incremental',
             ],
             [
                 'nombre' => 'Abonos',
@@ -53,7 +53,7 @@ class ImportDashboardController extends Controller
                 'color' => 'green',
                 'ruta_import' => 'financiero.abonos.importar',
                 'ruta_listado' => 'financiero.abonos.index',
-                'tipo' => 'Carga Completa',
+                'tipo' => 'Incremental',
             ],
             [
                 'nombre' => 'Gastos',
@@ -71,7 +71,7 @@ class ImportDashboardController extends Controller
                 'color' => 'cyan',
                 'ruta_import' => 'financiero.pagos.importar',
                 'ruta_listado' => 'financiero.pagos.index',
-                'tipo' => 'Carga Completa',
+                'tipo' => 'Incremental',
             ],
             [
                 'nombre' => 'Pagos x Apto',
@@ -80,7 +80,7 @@ class ImportDashboardController extends Controller
                 'color' => 'teal',
                 'ruta_import' => 'financiero.pagoapto.importar',
                 'ruta_listado' => 'financiero.pagos-apto.index',
-                'tipo' => 'Carga Completa',
+                'tipo' => 'Incremental',
             ],
             [
                 'nombre' => 'Mov. Pre-fact',
@@ -89,7 +89,7 @@ class ImportDashboardController extends Controller
                 'color' => 'orange',
                 'ruta_import' => 'financiero.movprefact.importar',
                 'ruta_listado' => 'financiero.mov-prefact.index',
-                'tipo' => 'Carga Completa',
+                'tipo' => 'Incremental',
             ],
             [
                 'nombre' => 'Fact. x Apto',
@@ -98,7 +98,7 @@ class ImportDashboardController extends Controller
                 'color' => 'pink',
                 'ruta_import' => 'financiero.movfactapto.importar',
                 'ruta_listado' => 'financiero.fact-apto.index',
-                'tipo' => 'Carga Completa',
+                'tipo' => 'Incremental',
             ],
             [
                 'nombre' => 'Fact. x Edificio',
@@ -107,7 +107,7 @@ class ImportDashboardController extends Controller
                 'color' => 'slate',
                 'ruta_import' => 'financiero.movfactedif.importar',
                 'ruta_listado' => 'financiero.fact-edif.index',
-                'tipo' => 'Carga Completa',
+                'tipo' => 'Incremental',
             ],
             [
                 'nombre' => 'Tasas BCV',

@@ -7,6 +7,7 @@ use App\Models\WelcomeSlider;
 use App\Models\WelcomeService;
 use App\Models\WelcomeResidence;
 use App\Models\WelcomeProduct;
+use App\Models\WelcomePopup;
 use App\Models\WelcomeSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -19,9 +20,10 @@ class WelcomeContentController extends Controller
         $services = WelcomeService::orderBy('orden')->get();
         $residences = WelcomeResidence::orderBy('orden')->get();
         $products = WelcomeProduct::orderBy('orden')->get();
+        $popups = WelcomePopup::latest()->get();
         $settings = WelcomeSetting::all()->groupBy('seccion');
 
-        return view('admin.welcome-content', compact('sliders', 'services', 'residences', 'products', 'settings'));
+        return view('admin.welcome-content', compact('sliders', 'services', 'residences', 'products', 'popups', 'settings'));
     }
 
     // ============ SLIDERS ============
@@ -228,6 +230,67 @@ class WelcomeContentController extends Controller
     {
         $product->delete();
         return back()->with('success', 'Producto/Servicio eliminado correctamente.');
+    }
+
+    // ============ POPUPS ============
+
+    public function storePopup(Request $request)
+    {
+        $request->validate([
+            'titulo' => 'required|string|max:255',
+            'contenido' => 'required|string',
+            'imagen' => 'nullable|image|max:4096',
+            'boton_texto' => 'nullable|string|max:100',
+            'boton_url' => 'nullable|string|max:255',
+            'icono' => 'nullable|string|max:100',
+            'color' => 'nullable|string|max:20',
+        ]);
+
+        $data = $request->except('imagen');
+        if ($request->hasFile('imagen')) {
+            $data['imagen'] = $request->file('imagen')->store('welcome/popups', 'public');
+        }
+        $data['activo'] = $request->has('activo');
+
+        WelcomePopup::create($data);
+
+        return back()->with('success', 'Ventana emergente creada correctamente.');
+    }
+
+    public function updatePopup(Request $request, WelcomePopup $popup)
+    {
+        $request->validate([
+            'titulo' => 'required|string|max:255',
+            'contenido' => 'required|string',
+            'imagen' => 'nullable|image|max:4096',
+            'boton_texto' => 'nullable|string|max:100',
+            'boton_url' => 'nullable|string|max:255',
+            'icono' => 'nullable|string|max:100',
+            'color' => 'nullable|string|max:20',
+        ]);
+
+        $data = $request->except(['imagen', '_token', '_method']);
+        if ($request->hasFile('imagen')) {
+            if ($popup->imagen) {
+                Storage::disk('public')->delete($popup->imagen);
+            }
+            $data['imagen'] = $request->file('imagen')->store('welcome/popups', 'public');
+        }
+        $data['activo'] = $request->has('activo');
+
+        $popup->update($data);
+
+        return back()->with('success', 'Ventana emergente actualizada correctamente.');
+    }
+
+    public function destroyPopup(WelcomePopup $popup)
+    {
+        if ($popup->imagen) {
+            Storage::disk('public')->delete($popup->imagen);
+        }
+        $popup->delete();
+
+        return back()->with('success', 'Ventana emergente eliminada correctamente.');
     }
 
     // ============ SETTINGS ============

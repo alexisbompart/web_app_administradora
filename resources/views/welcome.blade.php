@@ -1079,5 +1079,111 @@
             return html;
         }
         </script>
+
+        {{-- ══════════════════════════════════════
+             POPUP / VENTANA EMERGENTE
+        ══════════════════════════════════════ --}}
+        @if($popup)
+        <div id="welcome-popup-overlay"
+             class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+             style="background: rgba(15,15,35,0.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity:0; transition: opacity .4s ease;"
+             onclick="if(event.target===this) closeWelcomePopup()">
+
+            <div id="welcome-popup-card"
+                 style="transform: scale(0.92) translateY(20px); opacity:0; transition: transform .45s cubic-bezier(.22,1,.36,1), opacity .4s ease;"
+                 class="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden">
+
+                {{-- Franja superior con color corporativo --}}
+                <div class="h-1.5" style="background: linear-gradient(90deg, {{ $popup->color }}, #680c3e);"></div>
+
+                {{-- Boton cerrar --}}
+                <button onclick="closeWelcomePopup()"
+                        class="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-all hover:rotate-90 duration-300">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+
+                {{-- Imagen (si existe) --}}
+                @if($popup->imagen)
+                <div class="relative h-48 overflow-hidden">
+                    <img src="{{ asset('storage/' . $popup->imagen) }}" alt="{{ $popup->titulo }}" class="w-full h-full object-cover">
+                    <div class="absolute inset-0" style="background: linear-gradient(to top, rgba(255,255,255,1) 0%, transparent 60%);"></div>
+                </div>
+                @endif
+
+                {{-- Contenido --}}
+                <div class="px-8 {{ $popup->imagen ? 'pt-0 -mt-6 relative' : 'pt-8' }} pb-8">
+                    {{-- Icono --}}
+                    <div class="flex items-center justify-center mb-5">
+                        <div class="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+                             style="background: linear-gradient(135deg, {{ $popup->color }}, {{ $popup->color }}dd);">
+                            <i class="{{ $popup->icono }} text-white text-2xl"></i>
+                        </div>
+                    </div>
+
+                    {{-- Titulo --}}
+                    <h3 class="text-center font-heading font-bold text-xl text-navy-800 mb-3 leading-tight">
+                        {{ $popup->titulo }}
+                    </h3>
+
+                    {{-- Separador --}}
+                    <div class="w-12 h-0.5 mx-auto mb-4 rounded-full" style="background: {{ $popup->color }};"></div>
+
+                    {{-- Texto --}}
+                    <div class="text-sm text-slate_custom-500 leading-relaxed text-center mb-6">
+                        {!! nl2br(e($popup->contenido)) !!}
+                    </div>
+
+                    {{-- Botones --}}
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+                        @if($popup->boton_texto)
+                        <a href="{{ $popup->boton_url ?? '#' }}"
+                           class="inline-flex items-center gap-2 px-7 py-3 text-white text-sm font-heading font-semibold rounded-xl hover:opacity-90 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 duration-300"
+                           style="background: linear-gradient(135deg, {{ $popup->color }}, #680c3e);">
+                            {{ $popup->boton_texto }} <i class="fas fa-arrow-right text-xs"></i>
+                        </a>
+                        @endif
+                        <button onclick="closeWelcomePopup()"
+                                class="inline-flex items-center gap-2 px-7 py-3 bg-slate-100 text-slate-600 text-sm font-heading font-semibold rounded-xl hover:bg-slate-200 transition-all duration-300">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+
+                {{-- Detalle inferior --}}
+                <div class="px-8 py-3 bg-slate-50 border-t border-slate-100 text-center">
+                    <p class="text-[11px] text-slate-400 font-medium">
+                        <i class="fas fa-info-circle mr-1"></i>{{ $settings['nombre_empresa'] ?? 'Administradora' }} {{ $settings['subtitulo_empresa'] ?? 'Integral' }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                var overlay = document.getElementById('welcome-popup-overlay');
+                var card = document.getElementById('welcome-popup-card');
+                if (overlay && card) {
+                    overlay.style.opacity = '1';
+                    card.style.transform = 'scale(1) translateY(0)';
+                    card.style.opacity = '1';
+                }
+            }, 800);
+        });
+
+        function closeWelcomePopup() {
+            var overlay = document.getElementById('welcome-popup-overlay');
+            var card = document.getElementById('welcome-popup-card');
+            if (card) {
+                card.style.transform = 'scale(0.92) translateY(20px)';
+                card.style.opacity = '0';
+            }
+            if (overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(function() { overlay.style.display = 'none'; }, 400);
+            }
+        }
+        </script>
+        @endif
     </body>
 </html>

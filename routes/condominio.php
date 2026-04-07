@@ -27,6 +27,8 @@ Route::post('apartamentos/importar/preview', [ApartamentoImportController::class
 Route::post('apartamentos/importar/execute', [ApartamentoImportController::class, 'execute'])->name('apartamentos.importar.execute');
 
 Route::resource('apartamentos', ApartamentoController::class);
+Route::get('propietarios/generar', [PropietarioController::class, 'previewGenerate'])->name('propietarios.generate.preview');
+Route::post('propietarios/generar/batch', [PropietarioController::class, 'executeBatch'])->name('propietarios.generate.batch');
 Route::resource('propietarios', PropietarioController::class)->parameters(['propietarios' => 'propietario']);
 
 // Afilapto: import routes BEFORE resource

@@ -165,30 +165,35 @@ class AbonoImportController extends Controller
         $rows = json_decode(file_get_contents($tempPath), true);
         if (empty($rows)) { @unlink($tempPath); return redirect()->route('financiero.abonos.importar')->with('error', 'Sin filas validas.'); }
 
-        $results = ['imported' => 0, 'previous_count' => 0, 'errors' => []];
+        $results = ['imported' => 0, 'skipped' => 0, 'previous_count' => 0, 'errors' => []];
         $results['previous_count'] = CondAbonoApto::count();
 
-        try {
-            DB::table('cond_abonos_apto')->truncate();
-        } catch (\Exception $e) {
-            @unlink($tempPath ?? ($tp ?? ''));
-            return redirect()->route('financiero.abonos.importar')->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
-        }
-
         $now = now()->toDateTimeString();
-        foreach ($rows as $row) {
-            $data = array_filter($row['data'], fn($v) => $v !== null);
-            $data['created_at'] = $now;
-            $data['updated_at'] = $now;
-            try {
-                DB::table('cond_abonos_apto')->insert($data);
-                $results['imported']++;
-            } catch (\Exception $e) {
-                $results['errors'][] = [
-                    'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
-                    'reason' => $e->getMessage(),
-                ];
+        DB::beginTransaction();
+        try {
+            foreach ($rows as $row) {
+                $data = array_filter($row['data'], fn($v) => $v !== null);
+                $data['created_at'] = $now;
+                $data['updated_at'] = $now;
+                try {
+                    DB::table('cond_abonos_apto')->insert($data);
+                    $results['imported']++;
+                } catch (\Exception $e) {
+                    if (str_contains($e->getMessage(), 'duplicate') || str_contains($e->getMessage(), 'Duplicate')) {
+                        $results['skipped']++;
+                    } else {
+                        $results['errors'][] = [
+                            'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
+                            'reason' => $e->getMessage(),
+                        ];
+                    }
+                }
             }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            @unlink($tempPath);
+            return redirect()->route('financiero.abonos.importar')->with('error', 'Error en la importacion: ' . $e->getMessage());
         }
 
         @unlink($tempPath);

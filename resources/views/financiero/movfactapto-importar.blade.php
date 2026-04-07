@@ -3,7 +3,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-2xl font-heading font-bold text-navy-800">Importar Mov. Facturacion Apto</h2>
-                <p class="text-sm text-slate_custom-400 mt-1">Carga completa — reemplaza todos los movimientos de facturacion por apartamento</p>
+                <p class="text-sm text-slate_custom-400 mt-1">Carga incremental — agrega nuevos movimientos sin eliminar los existentes</p>
             </div>
             <a href="{{ route('financiero.cobranza.index') }}" class="btn-secondary"><i class="fas fa-arrow-left mr-2"></i>Volver a Cobranza</a>
         </div>
@@ -17,11 +17,11 @@
     @if(isset($results))
     <div class="space-y-6">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Anteriores</div><div class="w-10 h-10 bg-slate_custom-100 rounded-lg flex items-center justify-center"><i class="fas fa-database text-slate_custom-500"></i></div></div><div class="stat-value text-slate_custom-500">{{ number_format($results['previous_count']) }}</div><p class="text-xs text-slate_custom-400 mt-1">Eliminados</p></div>
-            <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Importados</div><div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center"><i class="fas fa-check-circle text-green-600"></i></div></div><div class="stat-value text-green-600">{{ number_format($results['imported']) }}</div></div>
-            <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Errores</div><div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center"><i class="fas fa-times-circle text-red-600"></i></div></div><div class="stat-value text-red-600">{{ count($results['errors']) }}</div></div>
+            <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Anteriores en BD</div><div class="w-10 h-10 bg-slate_custom-100 rounded-lg flex items-center justify-center"><i class="fas fa-database text-slate_custom-500"></i></div></div><div class="stat-value text-slate_custom-500">{{ number_format($results['previous_count']) }}</div></div>
+            <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Nuevos Importados</div><div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center"><i class="fas fa-check-circle text-green-600"></i></div></div><div class="stat-value text-green-600">{{ number_format($results['imported']) }}</div></div>
+            <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Duplicados Omitidos</div><div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center"><i class="fas fa-clone text-amber-600"></i></div></div><div class="stat-value text-amber-600">{{ number_format($results['skipped'] ?? 0) }}</div></div>
         </div>
-        <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2"><i class="fas fa-check-circle"></i>Carga completada. {{ number_format($results['previous_count']) }} anteriores eliminados, {{ number_format($results['imported']) }} nuevos importados.</div>
+        <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2"><i class="fas fa-check-circle"></i>Carga incremental completada. {{ number_format($results['imported']) }} nuevos registros importados, {{ number_format($results['skipped'] ?? 0) }} duplicados omitidos.</div>
         @if(count($results['errors']) > 0)
         <div class="card" x-data="{ show: false }">
             <div class="card-header cursor-pointer" @click="show = !show"><h3 class="text-sm font-heading font-semibold text-red-600 flex items-center justify-between w-full"><span><i class="fas fa-exclamation-triangle mr-2"></i>Errores ({{ count($results['errors']) }})</span><i class="fas" :class="show ? 'fa-chevron-up' : 'fa-chevron-down'"></i></h3></div>
@@ -37,14 +37,14 @@
     {{-- PREVIEW --}}
     @elseif(isset($summary))
     <div class="space-y-6">
-        <div class="bg-amber-50 border border-amber-300 text-amber-800 px-5 py-4 rounded-xl">
-            <div class="flex items-start gap-3"><i class="fas fa-exclamation-triangle text-xl mt-0.5"></i><div><p class="font-heading font-bold">Carga Completa — Se reemplazaran TODOS los movimientos</p><p class="text-sm mt-1">Se eliminaran <strong>{{ number_format($summary['total_actual_bd']) }}</strong> registros actuales y se insertaran <strong>{{ number_format($summary['validas']) }}</strong> nuevos.</p></div></div>
+        <div class="bg-blue-50 border border-blue-200 text-blue-800 px-5 py-4 rounded-xl">
+            <div class="flex items-start gap-3"><i class="fas fa-plus-circle text-xl mt-0.5"></i><div><p class="font-heading font-bold">Carga Incremental — Se agregaran nuevos registros</p><p class="text-sm mt-1">Se incorporaran <strong>{{ number_format($summary['validas']) }}</strong> registros del archivo. Los duplicados se omitiran. Los <strong>{{ number_format($summary['total_actual_bd']) }}</strong> existentes se mantienen.</p></div></div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Filas Archivo</div><div class="w-10 h-10 bg-slate_custom-100 rounded-lg flex items-center justify-center"><i class="fas fa-file-alt text-slate_custom-500"></i></div></div><div class="stat-value">{{ number_format($summary['total_archivo']) }}</div></div>
             <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Validas</div><div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center"><i class="fas fa-check-circle text-green-600"></i></div></div><div class="stat-value text-green-600">{{ number_format($summary['validas']) }}</div></div>
             <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Con Errores</div><div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center"><i class="fas fa-times-circle text-red-600"></i></div></div><div class="stat-value text-red-600">{{ number_format($summary['errores']) }}</div></div>
-            <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Actuales BD</div><div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center"><i class="fas fa-database text-amber-600"></i></div></div><div class="stat-value text-amber-600">{{ number_format($summary['total_actual_bd']) }}</div><p class="text-xs text-red-500 mt-1">Seran eliminados</p></div>
+            <div class="stat-card"><div class="flex items-center justify-between"><div class="stat-label">Actuales BD</div><div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><i class="fas fa-database text-blue-600"></i></div></div><div class="stat-value text-blue-600">{{ number_format($summary['total_actual_bd']) }}</div><p class="text-xs text-slate_custom-400 mt-1">Se mantienen</p></div>
         </div>
         @if(count($errors) > 0)
         <div class="card" x-data="{ show: false }">
@@ -61,11 +61,11 @@
             </tbody></table></div></div>
         </div>
         @if($summary['validas'] > 0)
-        <form action="{{ route('financiero.movfactapto.importar.execute') }}" method="POST" onsubmit="return confirm('Se eliminaran {{ number_format($summary['total_actual_bd']) }} registros y se insertaran {{ number_format($summary['validas']) }} nuevos. Continuar?')">
+        <form action="{{ route('financiero.movfactapto.importar.execute') }}" method="POST" onsubmit="return confirm('Se importaran {{ number_format($summary['validas']) }} registros. Los duplicados se omitiran. Continuar?')">
             @csrf
             <div class="flex items-center justify-end gap-3">
                 <a href="{{ route('financiero.movfactapto.importar') }}" class="btn-secondary"><i class="fas fa-times mr-2"></i>Cancelar</a>
-                <button type="submit" class="btn-primary" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin mr-2\'></i>Procesando...'; this.form.submit();"><i class="fas fa-sync-alt mr-2"></i>Reemplazar ({{ number_format($summary['validas']) }})</button>
+                <button type="submit" class="btn-primary" onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin mr-2\'></i>Procesando...'; this.form.submit();"><i class="fas fa-file-import mr-2"></i>Importar ({{ number_format($summary['validas']) }})</button>
             </div>
         </form>
         @endif
@@ -86,7 +86,7 @@
                     <div class="max-w-xl mx-auto text-center">
                         <div class="w-16 h-16 bg-burgundy-800/10 rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="fas fa-file-invoice text-2xl text-burgundy-800"></i></div>
                         <h4 class="text-lg font-heading font-bold text-navy-800 mb-2">Mov. Facturacion por Apartamento</h4>
-                        <p class="text-sm text-slate_custom-400 mb-2">Reemplaza <strong class="text-red-600">todos los registros actuales</strong>.</p>
+                        <p class="text-sm text-slate_custom-400 mb-2">Agrega <strong class="text-blue-600">nuevos registros</strong> sin eliminar los existentes.</p>
                         <p class="text-sm text-slate_custom-400 mb-6">Formato pipe-delimited (<code>|</code>). Max 100MB.</p>
                         <div class="mb-6">
                             <input type="file" name="archivo" accept=".csv,.txt,.dat" required class="w-full text-sm text-slate_custom-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-burgundy-800 file:text-white hover:file:bg-burgundy-700 file:cursor-pointer">

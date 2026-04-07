@@ -170,30 +170,55 @@ class DescuentoImportController extends Controller
             return redirect()->route('financiero.descuentos.importar')->with('error', 'Sin filas validas.');
         }
 
-        $results = ['imported' => 0, 'previous_count' => 0, 'errors' => []];
+        $results = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'previous_count' => 0, 'errors' => []];
         $results['previous_count'] = CondDescuentoApto::count();
 
-        try {
-            DB::table('cond_descuentos_apto')->truncate();
-        } catch (\Exception $e) {
-            @unlink($tempPath ?? ($tp ?? ''));
-            return redirect()->route('financiero.descuentos.importar')->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
-        }
-
         $now = now()->toDateTimeString();
-        foreach ($rows as $row) {
-            $data = array_filter($row['data'], fn($v) => $v !== null);
-            $data['created_at'] = $now;
-            $data['updated_at'] = $now;
-            try {
-                DB::table('cond_descuentos_apto')->insert($data);
-                $results['imported']++;
-            } catch (\Exception $e) {
-                $results['errors'][] = [
-                    'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
-                    'reason' => $e->getMessage(),
-                ];
+        DB::beginTransaction();
+        try {
+            foreach ($rows as $row) {
+                $data = array_filter($row['data'], fn($v) => $v !== null);
+
+                $aptoId = $data['apartamento_id'] ?? null;
+                $periodo = $data['periodo'] ?? null;
+
+                try {
+                    if ($aptoId && $periodo) {
+                        $existing = DB::table('cond_descuentos_apto')
+                            ->where('apartamento_id', $aptoId)
+                            ->where('periodo', $periodo)
+                            ->first();
+
+                        if ($existing) {
+                            $data['updated_at'] = $now;
+                            DB::table('cond_descuentos_apto')
+                                ->where('id', $existing->id)
+                                ->update($data);
+                            $results['updated']++;
+                        } else {
+                            $data['created_at'] = $now;
+                            $data['updated_at'] = $now;
+                            DB::table('cond_descuentos_apto')->insert($data);
+                            $results['imported']++;
+                        }
+                    } else {
+                        $data['created_at'] = $now;
+                        $data['updated_at'] = $now;
+                        DB::table('cond_descuentos_apto')->insert($data);
+                        $results['imported']++;
+                    }
+                } catch (\Exception $e) {
+                    $results['errors'][] = [
+                        'info' => ($data['cod_edif_legacy'] ?? '') . '/' . ($data['num_apto_legacy'] ?? ''),
+                        'reason' => $e->getMessage(),
+                    ];
+                }
             }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            @unlink($tempPath);
+            return redirect()->route('financiero.descuentos.importar')->with('error', 'Error en la importacion: ' . $e->getMessage());
         }
 
         @unlink($tempPath);

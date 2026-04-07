@@ -35,6 +35,7 @@
                         <thead>
                             <tr>
                                 <th>ID</th>
+                                <th>PINT</th>
                                 <th>Edificio</th>
                                 <th>Apartamento</th>
                                 <th>Compania</th>
@@ -48,6 +49,7 @@
                             @foreach($afilaptos as $afil)
                             <tr>
                                 <td class="text-xs text-slate_custom-400">{{ $afil->id }}</td>
+                                <td class="font-medium text-navy-800 text-xs">{{ $afil->cod_pint ?? '--' }}</td>
                                 <td>{{ $afil->edificio?->nombre ?? $afil->edificio?->cod_edif ?? '--' }}</td>
                                 <td class="font-medium text-navy-800">{{ $afil->apartamento?->num_apto ?? '--' }}</td>
                                 <td class="text-xs">{{ $afil->compania?->nombre ?? '--' }}</td>

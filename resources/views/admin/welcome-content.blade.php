@@ -31,6 +31,9 @@
             <button @click="activeTab = 'residences'" :class="activeTab === 'residences' ? 'bg-burgundy-800 text-white' : 'text-slate_custom-500 hover:bg-slate_custom-50'" class="px-4 py-2.5 rounded-xl text-sm font-semibold transition">
                 <i class="fas fa-building mr-2"></i>Residencias
             </button>
+            <button @click="activeTab = 'popups'" :class="activeTab === 'popups' ? 'bg-burgundy-800 text-white' : 'text-slate_custom-500 hover:bg-slate_custom-50'" class="px-4 py-2.5 rounded-xl text-sm font-semibold transition">
+                <i class="fas fa-window-restore mr-2"></i>Ventana Emergente
+            </button>
             <button @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'bg-burgundy-800 text-white' : 'text-slate_custom-500 hover:bg-slate_custom-50'" class="px-4 py-2.5 rounded-xl text-sm font-semibold transition">
                 <i class="fas fa-cog mr-2"></i>Textos Generales
             </button>
@@ -642,6 +645,177 @@
                         <div class="flex justify-end gap-2 pt-2">
                             <button type="button" onclick="document.getElementById('modal-residence-new').classList.add('hidden')" class="btn-secondary text-sm">Cancelar</button>
                             <button type="submit" class="btn-primary text-sm">Agregar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {{-- ===================== POPUPS TAB ===================== --}}
+        <div x-show="activeTab === 'popups'" x-transition>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate_custom-200">
+                <div class="p-6 border-b border-slate_custom-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="font-heading font-bold text-lg text-navy-800">Ventana Emergente</h3>
+                        <p class="text-sm text-slate_custom-400">Configura un popup que aparece al cargar la pagina de inicio. Solo 1 puede estar activo.</p>
+                    </div>
+                    <button onclick="document.getElementById('modal-popup-new').classList.remove('hidden')" class="btn-primary text-sm">
+                        <i class="fas fa-plus mr-2"></i>Crear Popup
+                    </button>
+                </div>
+                <div class="p-6">
+                    @if($popups->isEmpty())
+                    <div class="text-center py-12 text-slate_custom-400">
+                        <i class="fas fa-window-restore text-4xl mb-3"></i>
+                        <p>No hay ventanas emergentes configuradas. Crea la primera.</p>
+                    </div>
+                    @else
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach($popups as $popup)
+                        <div class="border border-slate_custom-200 rounded-xl overflow-hidden {{ !$popup->activo ? 'opacity-50' : '' }}">
+                            <div class="p-4">
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: {{ $popup->color }}15;">
+                                            <i class="{{ $popup->icono }}" style="color: {{ $popup->color }};"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-sm text-navy-800">{{ $popup->titulo }}</h4>
+                                            <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold {{ $popup->activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                                                {{ $popup->activo ? 'Activo' : 'Inactivo' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-slate_custom-400 line-clamp-2 mb-3">{{ Str::limit(strip_tags($popup->contenido), 120) }}</p>
+                                @if($popup->imagen)
+                                <img src="{{ asset('storage/' . $popup->imagen) }}" class="w-full h-28 object-cover rounded-lg mb-3">
+                                @endif
+                                <div class="flex gap-2">
+                                    <button onclick="document.getElementById('modal-popup-{{ $popup->id }}').classList.remove('hidden')" class="text-xs text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-edit mr-1"></i>Editar
+                                    </button>
+                                    <form action="{{ route('admin.welcome.popups.destroy', $popup) }}" method="POST" onsubmit="return confirm('Eliminar esta ventana emergente?')">
+                                        @csrf @method('DELETE')
+                                        <button class="text-xs text-red-600 hover:text-red-800"><i class="fas fa-trash mr-1"></i>Eliminar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Modal Edit Popup --}}
+                        <div id="modal-popup-{{ $popup->id }}" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                                <div class="p-6 border-b border-slate_custom-100 flex items-center justify-between">
+                                    <h3 class="font-heading font-bold text-navy-800">Editar Ventana Emergente</h3>
+                                    <button onclick="this.closest('[id^=modal-popup]').classList.add('hidden')" class="text-slate_custom-400 hover:text-slate_custom-600"><i class="fas fa-times"></i></button>
+                                </div>
+                                <form action="{{ route('admin.welcome.popups.update', $popup) }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
+                                    @csrf @method('PUT')
+                                    <div>
+                                        <label class="block text-sm font-semibold text-navy-800 mb-1">Titulo *</label>
+                                        <input type="text" name="titulo" value="{{ $popup->titulo }}" required class="w-full rounded-lg border-slate_custom-300 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-navy-800 mb-1">Contenido *</label>
+                                        <textarea name="contenido" rows="4" required class="w-full rounded-lg border-slate_custom-300 text-sm">{{ $popup->contenido }}</textarea>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-navy-800 mb-1">Imagen (dejar vacio para mantener actual)</label>
+                                        <input type="file" name="imagen" accept="image/*" class="w-full text-sm">
+                                        @if($popup->imagen)
+                                        <img src="{{ asset('storage/' . $popup->imagen) }}" class="mt-2 h-20 rounded-lg object-cover">
+                                        @endif
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-navy-800 mb-1">Texto Boton</label>
+                                            <input type="text" name="boton_texto" value="{{ $popup->boton_texto }}" class="w-full rounded-lg border-slate_custom-300 text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-navy-800 mb-1">URL Boton</label>
+                                            <input type="text" name="boton_url" value="{{ $popup->boton_url }}" class="w-full rounded-lg border-slate_custom-300 text-sm">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-navy-800 mb-1">Icono (Font Awesome)</label>
+                                            <input type="text" name="icono" value="{{ $popup->icono }}" class="w-full rounded-lg border-slate_custom-300 text-sm" placeholder="fas fa-bullhorn">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-semibold text-navy-800 mb-1">Color</label>
+                                            <input type="color" name="color" value="{{ $popup->color }}" class="w-full h-10 rounded-lg border-slate_custom-300">
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" name="activo" {{ $popup->activo ? 'checked' : '' }} class="rounded border-slate_custom-300 text-burgundy-800">
+                                            <span class="text-sm font-semibold text-navy-800">Activo (visible en pagina de inicio)</span>
+                                        </label>
+                                    </div>
+                                    <div class="flex justify-end gap-2 pt-2">
+                                        <button type="button" onclick="this.closest('[id^=modal-popup]').classList.add('hidden')" class="btn-secondary text-sm">Cancelar</button>
+                                        <button type="submit" class="btn-primary text-sm">Guardar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Modal New Popup --}}
+            <div id="modal-popup-new" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                    <div class="p-6 border-b border-slate_custom-100 flex items-center justify-between">
+                        <h3 class="font-heading font-bold text-navy-800">Nueva Ventana Emergente</h3>
+                        <button onclick="document.getElementById('modal-popup-new').classList.add('hidden')" class="text-slate_custom-400 hover:text-slate_custom-600"><i class="fas fa-times"></i></button>
+                    </div>
+                    <form action="{{ route('admin.welcome.popups.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
+                        @csrf
+                        <div>
+                            <label class="block text-sm font-semibold text-navy-800 mb-1">Titulo *</label>
+                            <input type="text" name="titulo" required class="w-full rounded-lg border-slate_custom-300 text-sm" placeholder="Ej: Aviso Importante">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-navy-800 mb-1">Contenido *</label>
+                            <textarea name="contenido" rows="4" required class="w-full rounded-lg border-slate_custom-300 text-sm" placeholder="Escribe el mensaje del popup..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-navy-800 mb-1">Imagen (opcional)</label>
+                            <input type="file" name="imagen" accept="image/*" class="w-full text-sm">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-navy-800 mb-1">Texto Boton</label>
+                                <input type="text" name="boton_texto" class="w-full rounded-lg border-slate_custom-300 text-sm" placeholder="Ej: Mas Informacion">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-navy-800 mb-1">URL Boton</label>
+                                <input type="text" name="boton_url" class="w-full rounded-lg border-slate_custom-300 text-sm" placeholder="Ej: #contacto">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-navy-800 mb-1">Icono (Font Awesome)</label>
+                                <input type="text" name="icono" value="fas fa-bullhorn" class="w-full rounded-lg border-slate_custom-300 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-navy-800 mb-1">Color</label>
+                                <input type="color" name="color" value="#273272" class="w-full h-10 rounded-lg border-slate_custom-300">
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" name="activo" class="rounded border-slate_custom-300 text-burgundy-800">
+                                <span class="text-sm font-semibold text-navy-800">Activo (visible en pagina de inicio)</span>
+                            </label>
+                        </div>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button type="button" onclick="document.getElementById('modal-popup-new').classList.add('hidden')" class="btn-secondary text-sm">Cancelar</button>
+                            <button type="submit" class="btn-primary text-sm">Crear Popup</button>
                         </div>
                     </form>
                 </div>

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\WelcomePopup;
 use App\Models\WelcomeProduct;
 use App\Models\WelcomeService;
 use App\Models\WelcomeSetting;
@@ -223,5 +224,18 @@ class WelcomeContentSeeder extends Seeder
         foreach ($settings as $setting) {
             WelcomeSetting::updateOrCreate(['clave' => $setting['clave']], $setting);
         }
+
+        // ============ POPUP ============
+        WelcomePopup::updateOrCreate(
+            ['titulo' => 'Bienvenido a Administradora Integral'],
+            [
+                'contenido' => "Nos complace darle la bienvenida a nuestro portal web.\n\nAqui podra consultar su estado de cuenta, registrar pagos y mantenerse informado sobre su comunidad.\n\nPara mas informacion, no dude en contactarnos.",
+                'icono' => 'fas fa-building',
+                'color' => '#273272',
+                'boton_texto' => 'Conocer mas',
+                'boton_url' => '#servicios',
+                'activo' => false,
+            ]
+        );
     }
 }

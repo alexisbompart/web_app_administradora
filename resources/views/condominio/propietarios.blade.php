@@ -5,9 +5,14 @@
                 <h2 class="text-2xl font-heading font-bold text-navy-800">Propietarios</h2>
                 <p class="text-sm text-slate_custom-400 mt-1">Gestión de propietarios del condominio</p>
             </div>
-            <a href="{{ route('condominio.propietarios.create') }}" class="btn-primary">
-                <i class="fas fa-plus mr-2"></i>Crear nuevo
-            </a>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('condominio.propietarios.generate.preview') }}" class="btn-secondary">
+                    <i class="fas fa-users-cog mr-2"></i>Generar desde Afiliaciones
+                </a>
+                <a href="{{ route('condominio.propietarios.create') }}" class="btn-primary">
+                    <i class="fas fa-plus mr-2"></i>Crear nuevo
+                </a>
+            </div>
         </div>
     </x-slot>
 
@@ -23,10 +28,11 @@
                     <table class="table-custom">
                         <thead>
                             <tr>
-                                <th>Cédula</th>
+                                <th>Cedula</th>
                                 <th>Nombre Completo</th>
-                                <th>Teléfono</th>
+                                <th>Telefono</th>
                                 <th>Email</th>
+                                <th>Apartamentos</th>
                                 <th>Estatus</th>
                                 <th>Acciones</th>
                             </tr>
@@ -35,14 +41,26 @@
                             @foreach($propietarios as $propietario)
                                 <tr>
                                     <td class="font-medium text-navy-800">{{ $propietario->cedula }}</td>
-                                    <td>{{ $propietario->nombre }} {{ $propietario->apellido }}</td>
-                                    <td>{{ $propietario->telefono }}</td>
-                                    <td>{{ $propietario->email }}</td>
+                                    <td>{{ $propietario->nombres }} {{ $propietario->apellidos }}</td>
+                                    <td class="text-xs">{{ $propietario->telefono ?? '--' }}</td>
+                                    <td class="text-xs">{{ $propietario->email ?? '--' }}</td>
+                                    <td>
+                                        @php $aptos = $propietario->apartamentos->where('pivot.propietario_actual', true); @endphp
+                                        @if($aptos->count())
+                                            @foreach($aptos as $apto)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-navy-800/10 text-navy-800 mr-1 mb-1">
+                                                    {{ $apto->edificio?->nombre ?? $apto->edificio?->cod_edif ?? '?' }} - {{ $apto->num_apto }}
+                                                </span>
+                                            @endforeach
+                                        @else
+                                            <span class="text-xs text-slate_custom-300">Sin asignar</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         @if($propietario->estatus)
-                                            <span class="badge-success">Activo</span>
+                                            <span class="badge-success text-xs">Activo</span>
                                         @else
-                                            <span class="badge-danger">Inactivo</span>
+                                            <span class="badge-danger text-xs">Inactivo</span>
                                         @endif
                                     </td>
                                     <td>
@@ -53,7 +71,7 @@
                                             <a href="{{ route('condominio.propietarios.edit', $propietario) }}" class="btn-secondary text-xs px-2 py-1" title="Editar">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <form action="{{ route('condominio.propietarios.destroy', $propietario) }}" method="POST" onsubmit="return confirm('¿Está seguro de eliminar este propietario?')">
+                                            <form action="{{ route('condominio.propietarios.destroy', $propietario) }}" method="POST" onsubmit="return confirm('Eliminar este propietario?')">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="btn-secondary text-xs px-2 py-1 text-red-600 hover:text-red-800" title="Eliminar">

@@ -8,6 +8,7 @@ use App\Models\WelcomeService;
 use App\Models\WelcomeResidence;
 use App\Models\WelcomeProduct;
 use App\Models\WelcomeSetting;
+use App\Models\WelcomePopup;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -16,7 +17,8 @@ Route::get('/', function () {
     $residences = WelcomeResidence::activo()->get();
     $products = WelcomeProduct::activo()->get();
     $settings = WelcomeSetting::all()->pluck('valor', 'clave');
-    return view('welcome', compact('sliders', 'services', 'residences', 'products', 'settings'));
+    $popup = WelcomePopup::activo()->latest()->first();
+    return view('welcome', compact('sliders', 'services', 'residences', 'products', 'settings', 'popup'));
 });
 
 Route::get('/api/companias-mapa', function () {
@@ -64,6 +66,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/admin/welcome/products/{product}', [WelcomeContentController::class, 'destroyProduct'])->name('admin.welcome.products.destroy');
 
     Route::put('/admin/welcome/settings', [WelcomeContentController::class, 'updateSettings'])->name('admin.welcome.settings.update');
+
+    Route::post('/admin/welcome/popups', [WelcomeContentController::class, 'storePopup'])->name('admin.welcome.popups.store');
+    Route::put('/admin/welcome/popups/{popup}', [WelcomeContentController::class, 'updatePopup'])->name('admin.welcome.popups.update');
+    Route::delete('/admin/welcome/popups/{popup}', [WelcomeContentController::class, 'destroyPopup'])->name('admin.welcome.popups.destroy');
 });
 
 use App\Http\Controllers\PagoIntegral\AfiliacionPublicaController;
