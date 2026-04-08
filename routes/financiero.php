@@ -131,6 +131,8 @@ Route::prefix('pago-integral')->name('pago-integral.')->group(function () {
     Route::get('/archivos', [PagoIntegralController::class, 'archivos'])->name('archivos');
     Route::get('/archivos/{archivo}', [PagoIntegralController::class, 'archivoDetalle'])->name('archivos.detalle');
     Route::patch('/archivos/{archivo}/estatus', [PagoIntegralController::class, 'actualizarEstatusArchivo'])->name('archivos.estatus');
+    Route::get('/archivos/{archivo}/procesar-respuesta', [PagoIntegralController::class, 'procesarRespuestaForm'])->name('archivos.procesar-respuesta');
+    Route::post('/archivos/{archivo}/procesar-respuesta', [PagoIntegralController::class, 'procesarRespuesta'])->name('archivos.procesar-respuesta.post');
 });
 
 // CajaMatic

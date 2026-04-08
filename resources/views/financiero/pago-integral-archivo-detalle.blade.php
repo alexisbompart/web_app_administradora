@@ -98,14 +98,10 @@
                     </form>
                     @endif
                     @if(in_array($archivo->estatus, ['EN', 'EP']))
-                    <form action="{{ route('financiero.pago-integral.archivos.estatus', $archivo) }}" method="POST"
-                          onsubmit="return confirm('Al marcar como Procesado se aprobaran automaticamente todos los pagos incluidos. Continuar?')">
-                        @csrf @method('PATCH')
-                        <input type="hidden" name="estatus" value="PR">
-                        <button type="submit" class="w-full text-sm py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition">
-                            <i class="fas fa-check-double mr-2"></i>Procesado (Aprobar Pagos)
-                        </button>
-                    </form>
+                    <a href="{{ route('financiero.pago-integral.archivos.procesar-respuesta', $archivo) }}"
+                       class="w-full flex items-center justify-center text-sm py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition">
+                        <i class="fas fa-file-upload mr-2"></i>Procesar Respuesta Bancaria
+                    </a>
                     @endif
                 </div>
                 @endif

@@ -382,6 +382,224 @@ class PagoIntegralController extends Controller
         return back()->with('success', 'Archivo #' . $archivo->id . ' actualizado a: ' . $label);
     }
 
+    // ============ PROCESAR RESPUESTA BANCARIA ============
+
+    public function procesarRespuestaForm(PagoIntegralArchivo $archivo)
+    {
+        $archivo->load(['banco', 'pagos.afilpagointegral', 'pagos.pagoIntegralDetalles']);
+        return view('financiero.pago-integral-procesar-respuesta', compact('archivo'));
+    }
+
+    public function procesarRespuesta(Request $request, PagoIntegralArchivo $archivo)
+    {
+        $request->validate([
+            'archivo_respuesta' => 'required|file|max:10240',
+        ]);
+
+        $archivo->load(['banco', 'pagos.afilpagointegral.afilapto', 'pagos.pagoIntegralDetalles']);
+
+        $content = file_get_contents($request->file('archivo_respuesta')->getRealPath());
+        $content = mb_convert_encoding($content, 'UTF-8', 'auto');
+        $lines = preg_split('/\r\n|\r|\n/', $content);
+
+        $iniciales = strtoupper(trim($archivo->banco->iniciales ?? ''));
+
+        $registros = match ($iniciales) {
+            'BC'  => $this->parsearRespuestaBancaribe($lines),
+            'BM'  => $this->parsearRespuestaMercantil($lines),
+            'BAN' => $this->parsearRespuestaBanesco($lines),
+            default => [],
+        };
+
+        if (empty($registros)) {
+            return back()->with('error', 'No se pudieron leer registros del archivo de respuesta para banco ' . ($archivo->banco->nombre ?? 'desconocido') . '.');
+        }
+
+        // Mapear pagos del archivo por cedula
+        $pagosPorCedula = [];
+        foreach ($archivo->pagos as $pago) {
+            $cedula = trim($pago->afilpagointegral?->cedula_rif ?? '');
+            if ($cedula) {
+                $pagosPorCedula[$cedula][] = $pago;
+            }
+        }
+
+        $results = ['aprobados' => 0, 'rechazados' => 0, 'no_encontrados' => 0, 'detalles' => []];
+
+        DB::beginTransaction();
+        try {
+            foreach ($registros as $reg) {
+                $cedula = $reg['cedula'];
+                $exitoso = $reg['exitoso'];
+                $mensaje = $reg['mensaje'];
+                $monto = $reg['monto'] ?? null;
+
+                if (!isset($pagosPorCedula[$cedula])) {
+                    $results['no_encontrados']++;
+                    $results['detalles'][] = ['cedula' => $cedula, 'estatus' => 'No encontrado', 'mensaje' => $mensaje];
+                    continue;
+                }
+
+                foreach ($pagosPorCedula[$cedula] as $pago) {
+                    if ($pago->estatus !== 'P') continue;
+
+                    if ($exitoso) {
+                        $pago->update([
+                            'estatus' => 'A',
+                            'observaciones' => trim(($pago->observaciones ?? '') . ' | Aprobado via respuesta bancaria - ' . $mensaje . ' (' . Auth::user()->name . ' ' . now()->format('d/m/Y H:i') . ')'),
+                        ]);
+
+                        $apartamentoId = $pago->afilpagointegral?->afilapto?->apartamento_id;
+                        $periodos = $pago->pagoIntegralDetalles->pluck('periodo')->toArray();
+
+                        if ($apartamentoId && !empty($periodos)) {
+                            CondDeudaApto::where('apartamento_id', $apartamentoId)
+                                ->whereIn('periodo', $periodos)
+                                ->update([
+                                    'estatus' => 'C',
+                                    'monto_pagado' => DB::raw('monto_original'),
+                                    'saldo' => 0,
+                                    'fecha_pag' => $pago->fecha ?? now(),
+                                ]);
+                        }
+
+                        $results['aprobados']++;
+                        $results['detalles'][] = ['cedula' => $cedula, 'estatus' => 'Aprobado', 'mensaje' => $mensaje];
+                    } else {
+                        $pago->update([
+                            'estatus' => 'R',
+                            'observaciones' => trim(($pago->observaciones ?? '') . ' | Rechazado: ' . $mensaje . ' (' . Auth::user()->name . ' ' . now()->format('d/m/Y H:i') . ')'),
+                        ]);
+
+                        $results['rechazados']++;
+                        $results['detalles'][] = ['cedula' => $cedula, 'estatus' => 'Rechazado', 'mensaje' => $mensaje];
+                    }
+                }
+
+                unset($pagosPorCedula[$cedula]);
+            }
+
+            // Actualizar estatus del archivo
+            $archivo->update([
+                'estatus' => PagoIntegralArchivo::ESTATUS_PROCESADO,
+                'fecha_procesado' => now(),
+            ]);
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error al procesar: ' . $e->getMessage());
+        }
+
+        return view('financiero.pago-integral-procesar-respuesta', compact('archivo', 'results'));
+    }
+
+    /**
+     * Bancaribe: cedula/cuenta/monto/nombre/periodo/fecha/tipo/mensaje
+     */
+    private function parsearRespuestaBancaribe(array $lines): array
+    {
+        $registros = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+
+            $parts = explode('/', $line);
+            if (count($parts) < 8) continue;
+
+            $cedulaRaw = $parts[0];
+            $cedula = preg_replace('/^[VJEGP]/i', '', $cedulaRaw);
+            $monto = (float) str_replace(['.', ','], ['', '.'], $parts[2]);
+            $mensaje = trim($parts[7] ?? '');
+            $exitoso = stripos($mensaje, 'correctamente') !== false;
+
+            $registros[] = [
+                'cedula' => $cedula,
+                'monto' => $monto,
+                'exitoso' => $exitoso,
+                'mensaje' => $mensaje,
+            ];
+        }
+        return $registros;
+    }
+
+    /**
+     * Mercantil: linea tipo 2 = detalle, contiene cedula, monto, codigo respuesta
+     */
+    private function parsearRespuestaMercantil(array $lines): array
+    {
+        $registros = [];
+        foreach ($lines as $line) {
+            if (strlen($line) < 120 || $line[0] !== '2') continue;
+
+            // Cedula: posicion 2-12 (despues de tipo y letra)
+            $letra = $line[1] ?? '';
+            $cedulaPadded = substr($line, 2, 9);
+            $cedula = ltrim($cedulaPadded, '0');
+
+            // Monto: posicion 68-84 (17 digitos, centavos)
+            $montoCents = (int) substr($line, 68, 17);
+            $monto = $montoCents / 100;
+
+            // Codigo respuesta: posicion ~140, buscar "0074" (COBRO EXITOSO)
+            $codigoResp = substr($line, 139, 4);
+            $mensaje = trim(substr($line, 143, 30));
+            $exitoso = $codigoResp === '0074';
+
+            $registros[] = [
+                'cedula' => $cedula,
+                'monto' => $monto,
+                'exitoso' => $exitoso,
+                'mensaje' => $mensaje ?: ($exitoso ? 'COBRO EXITOSO' : 'RECHAZADO COD:' . $codigoResp),
+            ];
+        }
+        return $registros;
+    }
+
+    /**
+     * Banesco: lineas 022=detalle, 030=respuesta del detalle anterior
+     */
+    private function parsearRespuestaBanesco(array $lines): array
+    {
+        $registros = [];
+        $currentCedula = null;
+        $currentMonto = null;
+
+        foreach ($lines as $line) {
+            $line = rtrim($line);
+            if (strlen($line) < 3) continue;
+
+            $tipo = substr($line, 0, 3);
+
+            if ($tipo === '022') {
+                // Extraer cedula (buscar V/J seguido de digitos)
+                if (preg_match('/[VJEGP](\d+)/', $line, $m)) {
+                    $currentCedula = ltrim($m[1], '0');
+                }
+                // Monto: posicion 39-56 (18 digitos, centavos)
+                if (strlen($line) >= 56) {
+                    $montoCents = (int) substr($line, 39, 17);
+                    $currentMonto = $montoCents / 100;
+                }
+            } elseif ($tipo === '030' && $currentCedula) {
+                $codigoResp = substr($line, 3, 4);
+                $mensaje = trim(substr($line, 7));
+                $exitoso = $codigoResp === '0074';
+
+                $registros[] = [
+                    'cedula' => $currentCedula,
+                    'monto' => $currentMonto,
+                    'exitoso' => $exitoso,
+                    'mensaje' => $mensaje ?: ($exitoso ? 'COBRO EXITOSO' : 'RECHAZADO COD:' . $codigoResp),
+                ];
+
+                $currentCedula = null;
+                $currentMonto = null;
+            }
+        }
+        return $registros;
+    }
+
     // ============ DATOS EMPRESA POR BANCO ============
     private const EMPRESA_MERCANTIL = [
         'rif'    => 'J0001426434',
