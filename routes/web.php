@@ -19,7 +19,7 @@ Route::get('/', function () {
     $settings = WelcomeSetting::all()->pluck('valor', 'clave');
     $popup = WelcomePopup::activo()->latest()->first();
     return view('welcome', compact('sliders', 'services', 'residences', 'products', 'settings', 'popup'));
-});
+})->name('home');
 
 Route::get('/api/companias-mapa', function () {
     return \App\Models\Condominio\Compania::where('activo', true)
@@ -74,10 +74,13 @@ Route::middleware('auth')->group(function () {
 
 use App\Http\Controllers\PagoIntegral\AfiliacionPublicaController;
 use App\Http\Controllers\ConsultaSaldoPublicaController;
+use App\Http\Controllers\SolicitudServicioPublicaController;
 
 Route::get('/afiliacion', [AfiliacionPublicaController::class, 'show'])->name('afiliacion.publica');
 Route::post('/afiliacion', [AfiliacionPublicaController::class, 'store'])->name('afiliacion.publica.store');
 
 Route::post('/consulta-saldo', [ConsultaSaldoPublicaController::class, 'consultar'])->name('consulta.saldo.publica');
+
+Route::post('/oferta-servicio', [SolicitudServicioPublicaController::class, 'store'])->name('solicitud.servicio.store');
 
 require __DIR__.'/auth.php';

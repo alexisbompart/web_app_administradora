@@ -279,6 +279,11 @@
             <i class="fas fa-globe w-5 text-center"></i>
             <span x-show="sidebarOpen" x-transition>Pagina Web</span>
         </a>
+        <a href="{{ route('admin.solicitudes-servicio.index') }}"
+           class="sidebar-link {{ request()->routeIs('admin.solicitudes-servicio.*') ? 'active' : '' }}">
+            <i class="fas fa-headset w-5 text-center"></i>
+            <span x-show="sidebarOpen" x-transition>Solicitudes</span>
+        </a>
         @endcanany
         @endunless
     </nav>
@@ -450,6 +455,7 @@
         <a href="{{ route('admin.roles.index') }}" class="sidebar-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}"><i class="fas fa-user-tag w-5 text-center"></i><span>Roles</span></a>
         <a href="{{ route('admin.importaciones.index') }}" class="sidebar-link {{ request()->routeIs('admin.importaciones.*') ? 'active' : '' }}"><i class="fas fa-file-import w-5 text-center"></i><span>Importaciones</span></a>
         <a href="{{ route('admin.welcome.index') }}" class="sidebar-link {{ request()->routeIs('admin.welcome.*') ? 'active' : '' }}"><i class="fas fa-globe w-5 text-center"></i><span>Pagina Web</span></a>
+        <a href="{{ route('admin.solicitudes-servicio.index') }}" class="sidebar-link {{ request()->routeIs('admin.solicitudes-servicio.*') ? 'active' : '' }}"><i class="fas fa-headset w-5 text-center"></i><span>Solicitudes</span></a>
         @endcanany
         @endunless
     </nav>

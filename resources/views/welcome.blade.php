@@ -107,8 +107,9 @@
                         <a href="#productos"  class="px-3 py-2 text-xs font-semibold text-slate_custom-500 hover:text-burgundy-800 transition rounded-lg hover:bg-burgundy-800/5">{{ $settings['nav_link_2'] ?? 'Productos' }}</a>
                         <a href="#residencias" class="px-3 py-2 text-xs font-semibold text-slate_custom-500 hover:text-burgundy-800 transition rounded-lg hover:bg-burgundy-800/5">{{ $settings['nav_link_3'] ?? 'Residencias' }}</a>
                         <a href="#servicios"  class="px-3 py-2 text-xs font-semibold text-slate_custom-500 hover:text-burgundy-800 transition rounded-lg hover:bg-burgundy-800/5">{{ $settings['nav_link_4'] ?? 'Servicios' }}</a>
-                        <a href="#mapa"       class="px-3 py-2 text-xs font-semibold text-slate_custom-500 hover:text-burgundy-800 transition rounded-lg hover:bg-burgundy-800/5">{{ $settings['nav_link_5'] ?? 'Ubicaciones' }}</a>
-                        <a href="#contacto"   class="px-3 py-2 text-xs font-semibold text-slate_custom-500 hover:text-burgundy-800 transition rounded-lg hover:bg-burgundy-800/5">{{ $settings['nav_link_6'] ?? 'Contactanos' }}</a>
+                        <a href="#mapa"            class="px-3 py-2 text-xs font-semibold text-slate_custom-500 hover:text-burgundy-800 transition rounded-lg hover:bg-burgundy-800/5">{{ $settings['nav_link_5'] ?? 'Ubicaciones' }}</a>
+                        <a href="#oferta-servicio" class="px-3 py-2 text-xs font-semibold text-slate_custom-500 hover:text-burgundy-800 transition rounded-lg hover:bg-burgundy-800/5">Oferta de Servicio</a>
+                        <a href="#contacto"        class="px-3 py-2 text-xs font-semibold text-slate_custom-500 hover:text-burgundy-800 transition rounded-lg hover:bg-burgundy-800/5">{{ $settings['nav_link_6'] ?? 'Contactanos' }}</a>
                     </nav>
 
                     <!-- CTA + mobile toggle -->
@@ -557,6 +558,111 @@
             </div>
         </section>
         @endif
+
+
+        <!-- ══════════════════════════════════════
+             OFERTA DE SERVICIO
+        ══════════════════════════════════════ -->
+        <section class="py-20 lg:py-28 bg-white" id="oferta-servicio">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-12 fade-in">
+                    <p class="section-eyebrow">Cuéntenos lo que necesita</p>
+                    <h2 class="text-3xl lg:text-4xl font-heading font-black text-navy-800 mt-3">Oferta de Servicio</h2>
+                    <p class="text-slate_custom-400 text-sm mt-3 max-w-xl mx-auto">Complete el formulario y un asesor se comunicará con usted a la brevedad.</p>
+                    <div class="section-divider"></div>
+                </div>
+
+                @if(session('solicitud_enviada'))
+                <div class="bg-green-50 border border-green-200 text-green-700 px-6 py-5 rounded-2xl flex items-start gap-4 mb-8 fade-in">
+                    <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <i class="fas fa-check-circle text-green-600 text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="font-heading font-bold text-green-800">¡Solicitud enviada exitosamente!</p>
+                        <p class="text-sm mt-1">Hemos recibido su solicitud. Recibirá un correo de confirmación y un asesor se comunicará con usted a la brevedad posible.</p>
+                    </div>
+                </div>
+                @endif
+
+                <div class="bg-white rounded-3xl border border-slate_custom-200 shadow-lg overflow-hidden fade-in">
+                    <!-- Card header -->
+                    <div class="h-2 bg-gradient-to-r from-navy-800 to-burgundy-800"></div>
+                    <div class="p-8 sm:p-10">
+                        <form action="{{ route('solicitud.servicio.store') }}" method="POST" id="form-oferta-servicio">
+                            @csrf
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+                                <!-- Nombres y Apellidos -->
+                                <div class="sm:col-span-2">
+                                    <label for="os_nombres" class="block text-sm font-semibold text-navy-800 mb-1.5">
+                                        Nombres y Apellidos <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" id="os_nombres" name="nombres_apellidos"
+                                           value="{{ old('nombres_apellidos') }}" required maxlength="150"
+                                           placeholder="Ingrese su nombre completo"
+                                           class="w-full border border-slate_custom-200 rounded-xl px-4 py-3 text-sm text-navy-800 focus:outline-none focus:border-burgundy-800 focus:ring-1 focus:ring-burgundy-800 transition placeholder-slate_custom-300 @error('nombres_apellidos') border-red-400 @enderror">
+                                    @error('nombres_apellidos') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+
+                                <!-- Email -->
+                                <div>
+                                    <label for="os_email" class="block text-sm font-semibold text-navy-800 mb-1.5">
+                                        Email <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="email" id="os_email" name="email"
+                                           value="{{ old('email') }}" required maxlength="150"
+                                           placeholder="correo@ejemplo.com"
+                                           class="w-full border border-slate_custom-200 rounded-xl px-4 py-3 text-sm text-navy-800 focus:outline-none focus:border-burgundy-800 focus:ring-1 focus:ring-burgundy-800 transition placeholder-slate_custom-300 @error('email') border-red-400 @enderror">
+                                    @error('email') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+
+                                <!-- Teléfono -->
+                                <div>
+                                    <label for="os_telefono" class="block text-sm font-semibold text-navy-800 mb-1.5">
+                                        Teléfono <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" id="os_telefono" name="telefono"
+                                           value="{{ old('telefono') }}" required maxlength="30"
+                                           placeholder="0414-0000000"
+                                           class="w-full border border-slate_custom-200 rounded-xl px-4 py-3 text-sm text-navy-800 focus:outline-none focus:border-burgundy-800 focus:ring-1 focus:ring-burgundy-800 transition placeholder-slate_custom-300 @error('telefono') border-red-400 @enderror">
+                                    @error('telefono') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+
+                                <!-- Asunto -->
+                                <div class="sm:col-span-2">
+                                    <label for="os_asunto" class="block text-sm font-semibold text-navy-800 mb-1.5">
+                                        Asunto <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="text" id="os_asunto" name="asunto"
+                                           value="{{ old('asunto') }}" required maxlength="200"
+                                           placeholder="¿En qué podemos ayudarle?"
+                                           class="w-full border border-slate_custom-200 rounded-xl px-4 py-3 text-sm text-navy-800 focus:outline-none focus:border-burgundy-800 focus:ring-1 focus:ring-burgundy-800 transition placeholder-slate_custom-300 @error('asunto') border-red-400 @enderror">
+                                    @error('asunto') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+
+                                <!-- Descripción -->
+                                <div class="sm:col-span-2">
+                                    <label for="os_descripcion" class="block text-sm font-semibold text-navy-800 mb-1.5">
+                                        Descripción
+                                    </label>
+                                    <textarea id="os_descripcion" name="descripcion" rows="5" maxlength="2000"
+                                              placeholder="Describa su requerimiento con el mayor detalle posible..."
+                                              class="w-full border border-slate_custom-200 rounded-xl px-4 py-3 text-sm text-navy-800 focus:outline-none focus:border-burgundy-800 focus:ring-1 focus:ring-burgundy-800 transition placeholder-slate_custom-300 resize-none @error('descripcion') border-red-400 @enderror">{{ old('descripcion') }}</textarea>
+                                    @error('descripcion') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button type="submit" id="btn-oferta-submit"
+                                        class="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-burgundy-800 to-navy-800 text-white font-heading font-bold rounded-2xl hover:opacity-90 transition-all duration-300 shadow-lg text-sm">
+                                    <i class="fas fa-paper-plane"></i> Enviar Solicitud
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
 
 
         <!-- ══════════════════════════════════════
