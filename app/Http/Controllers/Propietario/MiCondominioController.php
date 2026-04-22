@@ -228,8 +228,15 @@ class MiCondominioController extends Controller
 
         $bancos = Banco::orderBy('nombre')->get();
 
+        // Verificar si ya existe un pago pendiente de aprobación para estos apartamentos
+        $pagosPendientes = CondPago::where('estatus', 'P')
+            ->whereHas('condPagoAptos', fn($q) => $q->whereIn('apartamento_id', $apartamentoIds))
+            ->with(['condPagoAptos' => fn($q) => $q->whereIn('apartamento_id', $apartamentoIds)])
+            ->orderByDesc('fecha_pago')
+            ->get();
+
         return view('propietario.registrar-pago', compact(
-            'propietario', 'apartamentos', 'deudasPendientes', 'bancos'
+            'propietario', 'apartamentos', 'deudasPendientes', 'bancos', 'pagosPendientes'
         ));
     }
 
@@ -248,6 +255,15 @@ class MiCondominioController extends Controller
         ]);
 
         $apartamentoIds = $this->getApartamentos($propietario)->pluck('id');
+
+        // Bloquear si ya existe un pago pendiente de aprobación para estos apartamentos
+        $tienePagoPendiente = CondPago::where('estatus', 'P')
+            ->whereHas('condPagoAptos', fn($q) => $q->whereIn('apartamento_id', $apartamentoIds))
+            ->exists();
+
+        if ($tienePagoPendiente) {
+            return redirect()->back()->with('error', 'Ya tiene un pago registrado pendiente de aprobacion. Debe esperar a que el administrador lo procese antes de registrar otro pago.');
+        }
 
         $deudas = CondDeudaApto::whereIn('id', $validated['deudas'])
             ->whereIn('apartamento_id', $apartamentoIds)

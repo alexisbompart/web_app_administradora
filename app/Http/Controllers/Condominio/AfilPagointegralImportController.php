@@ -27,10 +27,33 @@ class AfilPagointegralImportController extends Controller
         $content = mb_convert_encoding($content, 'UTF-8', 'UTF-8');
         $lines = explode("\n", $content);
 
-        // Pre-load existing afilpagointegral for duplicate detection
+        // Pre-load lookups
         $existingPago = Afilpagointegral::pluck('id', 'afilapto_id')->toArray();
 
-        $rows = [];
+        // Cargar afilaptos que tienen edificio Y apartamento vinculados
+        $afilaptoValidos = DB::table('afilapto')
+            ->whereNotNull('edificio_id')
+            ->whereNotNull('apartamento_id')
+            ->pluck('id')
+            ->flip()
+            ->toArray();
+
+        // Cargar afilaptos sin edificio o sin apartamento para dar razón exacta
+        $afilaptoSinEdif = DB::table('afilapto')
+            ->whereNull('edificio_id')
+            ->pluck('id')
+            ->flip()
+            ->toArray();
+
+        $afilaptoSinApto = DB::table('afilapto')
+            ->whereNotNull('edificio_id')
+            ->whereNull('apartamento_id')
+            ->pluck('id')
+            ->flip()
+            ->toArray();
+
+        $rows    = [];
+        $omitidos = [];
 
         foreach ($lines as $index => $line) {
             $line = trim($line);
@@ -71,23 +94,38 @@ class AfilPagointegralImportController extends Controller
             $fechaEstatus = $this->clean($fields[26] ?? null);
             $observaciones = $this->clean($fields[27] ?? null);
 
-            // Validate afilapto_id (solo que sea numerico, la FK se resuelve al importar afilapto despues)
-            $afilId = null;
-            if ($afilAptoId && is_numeric($afilAptoId)) {
-                $afilId = (int) $afilAptoId;
-            } else {
-                $errors[] = "afilapto_id vacio o invalido";
+            // Validar afilapto_id
+            if (!$afilAptoId || !is_numeric($afilAptoId)) {
+                if (count($omitidos) < 500) {
+                    $omitidos[] = ['line' => $lineNumber, 'afilapto_id' => $afilAptoId ?? '--', 'cedula' => ($letra ?? '') . '-' . ($cedulaRif ?? ''), 'nombres' => $nombres, 'reason' => 'afilapto_id vacío o inválido'];
+                }
+                continue;
+            }
+
+            $afilId = (int) $afilAptoId;
+
+            // Validar que el afilapto tenga edificio y apartamento vinculados
+            if (!isset($afilaptoValidos[$afilId])) {
+                if (isset($afilaptoSinEdif[$afilId])) {
+                    $reason = "Afilapto ID {$afilId} no tiene edificio vinculado";
+                } elseif (isset($afilaptoSinApto[$afilId])) {
+                    $reason = "Afilapto ID {$afilId} no tiene apartamento vinculado";
+                } else {
+                    $reason = "Afilapto ID {$afilId} no existe en BD";
+                }
+                if (count($omitidos) < 500) {
+                    $omitidos[] = ['line' => $lineNumber, 'afilapto_id' => $afilId, 'cedula' => ($letra ?? '') . '-' . ($cedulaRif ?? ''), 'nombres' => $nombres, 'reason' => $reason];
+                }
+                continue;
             }
 
             // Parse dates
-            $fechaParsed = $this->parseDate($fecha);
+            $fechaParsed        = $this->parseDate($fecha);
             $fechaEstatusParsed = $this->parseDate($fechaEstatus);
 
-            // Fix estado_id: treat "0" as null
             if ($estadoId === '0') $estadoId = null;
             if ($estadoId) $estadoId = (int) $estadoId;
 
-            // Fix banco_id: asignar banco correcto segun prefijo de cuenta
             if ($ctaBancaria) {
                 $prefijoBanco = ['0105' => 3, '0114' => 5, '0134' => 8];
                 $prefijo = substr($ctaBancaria, 0, 4);
@@ -101,60 +139,57 @@ class AfilPagointegralImportController extends Controller
             }
 
             // Duplicate detection
-            $status = 'error';
-            $existingId = null;
-            if (empty($errors) && $afilId) {
-                if (isset($existingPago[$afilId])) {
-                    $status = 'update';
-                    $existingId = $existingPago[$afilId];
-                } else {
-                    $status = 'new';
-                }
+            if (isset($existingPago[$afilId])) {
+                $status     = 'update';
+                $existingId = $existingPago[$afilId];
+            } else {
+                $status     = 'new';
+                $existingId = null;
             }
 
             $mapped = [
-                'afilapto_id' => $afilId,
-                'fecha' => $fechaParsed,
-                'letra' => $letra,
-                'cedula_rif' => $cedulaRif,
-                'nombres' => $nombres,
-                'apellidos' => $apellidos,
-                'email' => $email,
+                'afilapto_id'   => $afilId,
+                'fecha'         => $fechaParsed,
+                'letra'         => $letra,
+                'cedula_rif'    => $cedulaRif,
+                'nombres'       => $nombres,
+                'apellidos'     => $apellidos,
+                'email'         => $email,
                 'email_alterno' => $emailAlt,
                 'calle_avenida' => $calleAv,
-                'piso_apto' => $pisoApto,
-                'edif_casa' => $edifCasa,
-                'urbanizacion' => $urbanizacion,
-                'ciudad' => $ciudad,
-                'estado_id' => $estadoId,
-                'telefono' => $telefono,
-                'fax' => $fax,
-                'celular' => $celular,
-                'otro' => $otro,
-                'banco_id' => $bancoId,
-                'cta_bancaria' => $ctaBancaria,
-                'tipo_cta' => $tipoCta,
-                'nom_usuario' => $nomUsuario,
-                'clave' => $clave,
-                'creado_por' => $creadoPor,
-                'cod_sucursal' => $codSucursal,
-                'estatus' => $estatus,
+                'piso_apto'     => $pisoApto,
+                'edif_casa'     => $edifCasa,
+                'urbanizacion'  => $urbanizacion,
+                'ciudad'        => $ciudad,
+                'estado_id'     => $estadoId,
+                'telefono'      => $telefono,
+                'fax'           => $fax,
+                'celular'       => $celular,
+                'otro'          => $otro,
+                'banco_id'      => $bancoId,
+                'cta_bancaria'  => $ctaBancaria,
+                'tipo_cta'      => $tipoCta,
+                'nom_usuario'   => $nomUsuario,
+                'clave'         => $clave,
+                'creado_por'    => $creadoPor,
+                'cod_sucursal'  => $codSucursal,
+                'estatus'       => $estatus,
                 'fecha_estatus' => $fechaEstatusParsed,
                 'observaciones' => $observaciones,
             ];
 
             $rows[] = [
-                'line' => $lineNumber,
-                'status' => $status,
-                'errors' => $errors,
+                'line'        => $lineNumber,
+                'status'      => $status,
+                'errors'      => $errors,
                 'existing_id' => $existingId,
-                'display' => [
-                    'afilapto_id' => $afilAptoId,
-                    'cedula' => ($letra ?? '') . '-' . ($cedulaRif ?? ''),
-                    'nombres' => $nombres,
-                    'apellidos' => $apellidos,
-                    'email' => $email,
-                    'estatus' => $estatus,
+                'display'     => [
+                    'afilapto_id' => $afilId,
+                    'cedula'      => ($letra ?? '') . '-' . ($cedulaRif ?? ''),
+                    'nombres'     => $nombres,
+                    'apellidos'   => $apellidos,
+                    'email'       => $email,
+                    'estatus'     => $estatus,
                 ],
                 'data' => $mapped,
             ];
@@ -163,14 +198,21 @@ class AfilPagointegralImportController extends Controller
         $tempPath = storage_path('app/import_afilpago_' . auth()->id() . '.json');
         file_put_contents($tempPath, json_encode($rows));
 
+        $omitidosPorRazon = collect($omitidos)
+            ->groupBy('reason')
+            ->map(fn($g) => $g->count())
+            ->sortDesc()
+            ->toArray();
+
         $summary = [
-            'total' => count($rows),
-            'new' => collect($rows)->where('status', 'new')->count(),
-            'update' => collect($rows)->where('status', 'update')->count(),
-            'error' => collect($rows)->where('status', 'error')->count(),
+            'total'              => count($rows) + count($omitidos),
+            'new'                => collect($rows)->where('status', 'new')->count(),
+            'update'             => collect($rows)->where('status', 'update')->count(),
+            'omitidos'           => count($omitidos),
+            'omitidos_por_razon' => $omitidosPorRazon,
         ];
 
-        return view('condominio.afilpagointegral-importar', compact('rows', 'summary'));
+        return view('condominio.afilpagointegral-importar', compact('rows', 'summary', 'omitidos'));
     }
 
     public function execute(Request $request)
@@ -195,47 +237,39 @@ class AfilPagointegralImportController extends Controller
         $duplicateAction = $request->input('duplicate_action');
         $results = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'errors' => []];
 
-        // Desactivar FK constraints temporalmente (afilapto se importa despues)
-        DB::statement('ALTER TABLE afilpagointegral DISABLE TRIGGER ALL');
-
-        try {
-            foreach ($rows as $row) {
-                if ($row['status'] === 'error') {
-                    $results['errors'][] = [
-                        'line' => $row['line'],
-                        'reason' => implode(', ', $row['errors']),
-                        'ref' => $row['display']['cedula'] ?? '',
-                    ];
-                    continue;
-                }
-
-                $data = array_filter($row['data'], fn($v) => $v !== null);
-
-                try {
-                    $existing = Afilpagointegral::where('afilapto_id', $data['afilapto_id'] ?? 0)->first();
-
-                    if ($existing) {
-                        if ($duplicateAction === 'update') {
-                            $existing->update($data);
-                            $results['updated']++;
-                        } else {
-                            $results['skipped']++;
-                        }
-                    } else {
-                        Afilpagointegral::create($data);
-                        $results['imported']++;
-                    }
-                } catch (\Exception $e) {
-                    $results['errors'][] = [
-                        'line' => $row['line'],
-                        'reason' => $e->getMessage(),
-                        'ref' => $row['display']['cedula'] ?? '',
-                    ];
-                }
+        foreach ($rows as $row) {
+            if ($row['status'] === 'error') {
+                $results['errors'][] = [
+                    'line'   => $row['line'],
+                    'reason' => implode(', ', $row['errors']),
+                    'ref'    => $row['display']['cedula'] ?? '',
+                ];
+                continue;
             }
-        } finally {
-            // Siempre reactivar triggers, incluso si hay error
-            DB::statement('ALTER TABLE afilpagointegral ENABLE TRIGGER ALL');
+
+            $data = array_filter($row['data'], fn($v) => $v !== null);
+
+            try {
+                $existing = Afilpagointegral::where('afilapto_id', $data['afilapto_id'] ?? 0)->first();
+
+                if ($existing) {
+                    if ($duplicateAction === 'update') {
+                        $existing->update($data);
+                        $results['updated']++;
+                    } else {
+                        $results['skipped']++;
+                    }
+                } else {
+                    Afilpagointegral::create($data);
+                    $results['imported']++;
+                }
+            } catch (\Exception $e) {
+                $results['errors'][] = [
+                    'line'   => $row['line'],
+                    'reason' => $e->getMessage(),
+                    'ref'    => $row['display']['cedula'] ?? '',
+                ];
+            }
         }
 
         @unlink($tempPath);

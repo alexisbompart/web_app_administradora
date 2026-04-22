@@ -40,12 +40,48 @@ class Afilpagointegral extends Model
         'estatus',
         'fecha_estatus',
         'observaciones',
+        // Proceso Mercantil
+        'tipo_operacion',
+        'mercantil_archivo_enviado',
+        'mercantil_fecha_envio',
+        'mercantil_estatus_proceso',
+        'mercantil_fecha_respuesta',
+        'mercantil_cod_respuesta',
+        'mercantil_mensaje',
     ];
 
     protected $casts = [
-        'fecha' => 'date',
-        'fecha_estatus' => 'date',
+        'fecha'                   => 'date',
+        'fecha_estatus'           => 'date',
+        'mercantil_fecha_envio'   => 'date',
+        'mercantil_fecha_respuesta' => 'date',
     ];
+
+    // ── Helpers ──
+    public function esMercantil(): bool
+    {
+        return $this->banco?->iniciales === 'BM';
+    }
+
+    public function esAfiliacion(): bool
+    {
+        return ($this->tipo_operacion ?? 'A') === 'A';
+    }
+
+    public function labelTipoOperacion(): string
+    {
+        return ($this->tipo_operacion ?? 'A') === 'A' ? 'Afiliación' : 'Desafiliación';
+    }
+
+    public function labelMercantilEstatus(): string
+    {
+        return match($this->mercantil_estatus_proceso) {
+            'P'     => 'Pendiente respuesta',
+            'A'     => 'Aprobado',
+            'R'     => 'Rechazado',
+            default => 'No aplica',
+        };
+    }
 
     public function afilapto(): BelongsTo
     {

@@ -36,7 +36,8 @@ class AfilAptoImportController extends Controller
 
         $handle = fopen($filePath, 'r');
         $previewRows = [];
-        $errors = [];
+        $omitidos = []; // registros rechazados con su razón
+        $errors = [];   // errores de formato/parseo
         $lineNumber = 0;
         $validCount = 0;
 
@@ -67,38 +68,55 @@ class AfilAptoImportController extends Controller
 
             if (!$legacyId || !is_numeric($legacyId)) {
                 if (count($errors) < 200) {
-                    $errors[] = ['line' => $lineNumber, 'info' => '', 'reason' => 'ID legacy vacio o invalido'];
+                    $errors[] = ['line' => $lineNumber, 'info' => $codPint ?? '', 'reason' => 'ID legacy vacio o invalido'];
                 }
                 continue;
             }
 
-            $warnings = [];
+            // --- VALIDAR EDIFICIO: obligatorio ---
             $edificioId = null;
-            if ($codEdif && isset($edificios[$codEdif])) {
-                $edificioId = $edificios[$codEdif];
-            } elseif ($codEdif) {
-                $warnings[] = "Edificio '{$codEdif}' no encontrado";
+            if (!$codEdif) {
+                if (count($omitidos) < 500) {
+                    $omitidos[] = ['line' => $lineNumber, 'cod_pint' => $codPint, 'cod_edif' => '--', 'num_apto' => $numApto, 'reason' => 'COD_EDIF vacío en el archivo'];
+                }
+                continue;
             }
+            if (!isset($edificios[$codEdif])) {
+                if (count($omitidos) < 500) {
+                    $omitidos[] = ['line' => $lineNumber, 'cod_pint' => $codPint, 'cod_edif' => $codEdif, 'num_apto' => $numApto, 'reason' => "Edificio '{$codEdif}' no existe en BD"];
+                }
+                continue;
+            }
+            $edificioId = $edificios[$codEdif];
 
+            // --- VALIDAR APARTAMENTO: obligatorio ---
             $apartamentoId = null;
-            if ($edificioId && $numApto) {
-                $apartamentoId = $apartamentos[$edificioId . '_' . $numApto] ?? null;
-                if (!$apartamentoId) $warnings[] = "Apto '{$numApto}' no en edif '{$codEdif}'";
+            if (!$numApto) {
+                if (count($omitidos) < 500) {
+                    $omitidos[] = ['line' => $lineNumber, 'cod_pint' => $codPint, 'cod_edif' => $codEdif, 'num_apto' => '--', 'reason' => 'NUM_APTO vacío en el archivo'];
+                }
+                continue;
+            }
+            $apartamentoId = $apartamentos[$edificioId . '_' . $numApto] ?? null;
+            if (!$apartamentoId) {
+                if (count($omitidos) < 500) {
+                    $omitidos[] = ['line' => $lineNumber, 'cod_pint' => $codPint, 'cod_edif' => $codEdif, 'num_apto' => $numApto, 'reason' => "Apto '{$numApto}' no existe en edificio '{$codEdif}'"];
+                }
+                continue;
             }
 
-            $companiaId = ($codComp && isset($companias[$codComp])) ? $companias[$codComp] : null;
-
+            $companiaId      = ($codComp && isset($companias[$codComp])) ? $companias[$codComp] : null;
             $fechaAfiliacion = $this->fastParseDateTime($fechaAfil);
 
             $mapped = [
-                'id'               => (int) $legacyId,
-                'cod_pint'         => $codPint,
-                'apartamento_id'   => $apartamentoId,
-                'edificio_id'      => $edificioId,
-                'compania_id'      => $companiaId,
-                'estatus_afil'     => $estatusAfil,
-                'fecha_afiliacion'  => $fechaAfiliacion,
-                'observaciones'    => $obs,
+                'id'              => (int) $legacyId,
+                'cod_pint'        => $codPint,
+                'apartamento_id'  => $apartamentoId,
+                'edificio_id'     => $edificioId,
+                'compania_id'     => $companiaId,
+                'estatus_afil'    => $estatusAfil,
+                'fecha_afiliacion' => $fechaAfiliacion,
+                'observaciones'   => $obs,
             ];
 
             fwrite($tempHandle, json_encode($mapped, JSON_UNESCAPED_UNICODE) . "\n");
@@ -115,7 +133,6 @@ class AfilAptoImportController extends Controller
                         'compania'  => $codComp,
                         'estatus'   => $estatusAfil,
                         'fecha'     => $fechaAfil,
-                        'warnings'  => $warnings,
                     ],
                 ];
             }
@@ -124,16 +141,25 @@ class AfilAptoImportController extends Controller
         fclose($handle);
         fclose($tempHandle);
 
+        // Agrupar omitidos por razón para el resumen
+        $omitidosPorRazon = collect($omitidos)
+            ->groupBy('reason')
+            ->map(fn($g) => $g->count())
+            ->sortDesc()
+            ->toArray();
+
         $totalActual = Afilapto::count();
 
         $summary = [
-            'total_archivo'   => $validCount + count($errors),
-            'validas'         => $validCount,
-            'errores'         => count($errors),
-            'total_actual_bd' => $totalActual,
+            'total_archivo'    => $validCount + count($omitidos) + count($errors),
+            'validas'          => $validCount,
+            'omitidos'         => count($omitidos),
+            'errores'          => count($errors),
+            'total_actual_bd'  => $totalActual,
+            'omitidos_por_razon' => $omitidosPorRazon,
         ];
 
-        return view('condominio.afilapto-importar', compact('summary', 'previewRows', 'errors'));
+        return view('condominio.afilapto-importar', compact('summary', 'previewRows', 'omitidos', 'errors'));
     }
 
     public function execute(Request $request)
@@ -142,22 +168,13 @@ class AfilAptoImportController extends Controller
 
         $tempPath = storage_path('app/import_afilapto_' . auth()->id() . '.bin');
         if (!file_exists($tempPath)) {
-            return redirect()->route('condominio.afilapto.importar')
+            return redirect()->route('condominio.afiliaciones-apto.importar')
                 ->with('error', 'No hay datos. Suba el archivo nuevamente.');
         }
 
-        $results = ['imported' => 0, 'previous_count' => Afilapto::count(), 'errors' => []];
+        $results = ['inserted' => 0, 'updated' => 0, 'errors' => []];
 
-        // Truncar tabla con CASCADE para PostgreSQL (afilpagointegral tiene FK a afilapto)
-        try {
-            DB::statement('TRUNCATE TABLE afilapto CASCADE');
-        } catch (\Exception $e) {
-            @unlink($tempPath);
-            return redirect()->route('condominio.afilapto.importar')
-                ->with('error', 'Error al limpiar tabla: ' . $e->getMessage());
-        }
-
-        // Stream e insertar por lotes
+        // Sin TRUNCATE — upsert por id legacy para no borrar registros existentes
         $handle = fopen($tempPath, 'r');
         $batch = [];
         $batchSize = 1000;
@@ -198,7 +215,7 @@ class AfilAptoImportController extends Controller
             DB::rollBack();
             fclose($handle);
             @unlink($tempPath);
-            return redirect()->route('condominio.afilapto.importar')
+            return redirect()->route('condominio.afiliaciones-apto.importar')
                 ->with('error', 'Error durante la importacion: ' . $e->getMessage());
         }
 
@@ -220,22 +237,32 @@ class AfilAptoImportController extends Controller
     {
         if (empty($batch)) return;
 
-        // Insertar fila por fila con SAVEPOINT para que un error no aborte todo en PostgreSQL
+        $existingIds = DB::table('afilapto')
+            ->whereIn('id', array_column($batch, 'id'))
+            ->pluck('id')
+            ->flip()
+            ->toArray();
+
         foreach ($batch as $row) {
             try {
                 DB::statement('SAVEPOINT sp_row');
+                $isNew = !isset($existingIds[$row['id']]);
                 DB::table('afilapto')->upsert(
                     [$row],
                     ['id'],
                     ['cod_pint', 'apartamento_id', 'edificio_id', 'compania_id', 'estatus_afil', 'fecha_afiliacion', 'observaciones', 'updated_at']
                 );
                 DB::statement('RELEASE SAVEPOINT sp_row');
-                $results['imported']++;
+                if ($isNew) {
+                    $results['inserted']++;
+                } else {
+                    $results['updated']++;
+                }
             } catch (\Exception $e) {
                 DB::statement('ROLLBACK TO SAVEPOINT sp_row');
                 if (count($results['errors']) < 50) {
                     $results['errors'][] = [
-                        'info' => ($row['cod_pint'] ?? '') . '/' . ($row['estatus_afil'] ?? ''),
+                        'info'   => ($row['cod_pint'] ?? '') . '/' . ($row['estatus_afil'] ?? ''),
                         'reason' => $e->getMessage(),
                     ];
                 }

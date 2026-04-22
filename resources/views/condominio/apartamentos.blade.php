@@ -16,10 +16,68 @@
         </div>
     </x-slot>
 
+    {{-- Filtros --}}
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ route('condominio.apartamentos.index') }}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate_custom-500 mb-1">Num. Apto</label>
+                    <input type="text" name="buscar" value="{{ $buscar ?? '' }}"
+                           placeholder="Buscar número..."
+                           class="w-full text-sm border border-slate_custom-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-burgundy-800/30">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate_custom-500 mb-1">Edificio</label>
+                    <select name="edificio_id" class="w-full text-sm border border-slate_custom-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-burgundy-800/30">
+                        <option value="">Todos</option>
+                        @foreach($edificios as $edif)
+                            <option value="{{ $edif->id }}" {{ $edificioId == $edif->id ? 'selected' : '' }}>
+                                {{ $edif->cod_edif }} - {{ $edif->nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate_custom-500 mb-1">Compañía</label>
+                    <select name="compania_id" class="w-full text-sm border border-slate_custom-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-burgundy-800/30">
+                        <option value="">Todas</option>
+                        @foreach($companias as $comp)
+                            <option value="{{ $comp->id }}" {{ $companiaId == $comp->id ? 'selected' : '' }}>
+                                {{ $comp->nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate_custom-500 mb-1">Estatus</label>
+                    <select name="estatus" class="w-full text-sm border border-slate_custom-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-burgundy-800/30">
+                        <option value="">Todos</option>
+                        <option value="A" {{ $estatus === 'A' ? 'selected' : '' }}>Activo</option>
+                        <option value="M" {{ $estatus === 'M' ? 'selected' : '' }}>Moroso</option>
+                        <option value="I" {{ $estatus === 'I' ? 'selected' : '' }}>Inactivo</option>
+                    </select>
+                </div>
+                <div class="flex items-end gap-2">
+                    <button type="submit" class="btn-primary text-sm px-4 py-1.5 flex-1">
+                        <i class="fas fa-search mr-1"></i>Buscar
+                    </button>
+                    @if($buscar || $edificioId || $companiaId || $estatus)
+                        <a href="{{ route('condominio.apartamentos.index') }}" class="btn-secondary text-sm px-3 py-1.5" title="Limpiar filtros">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    @endif
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-header">
             <h3 class="text-sm font-heading font-semibold text-navy-800">
                 <i class="fas fa-door-open mr-2 text-burgundy-800"></i>Listado de Apartamentos
+                @if($buscar || $edificioId || $companiaId || $estatus)
+                    <span class="ml-2 text-xs font-normal text-burgundy-800">(filtrado)</span>
+                @endif
             </h3>
         </div>
         <div class="card-body p-0">
@@ -28,6 +86,7 @@
                     <table class="table-custom">
                         <thead>
                             <tr>
+                                <th>Compañía</th>
                                 <th>Edificio</th>
                                 <th>Num Apto</th>
                                 <th>Piso</th>
@@ -41,6 +100,7 @@
                         <tbody>
                             @foreach($apartamentos as $apartamento)
                                 <tr>
+                                    <td class="text-xs text-slate_custom-400">{{ $apartamento->edificio?->compania?->nombre ?? 'N/A' }}</td>
                                     <td>{{ $apartamento->edificio?->nombre ?? 'N/A' }}</td>
                                     <td class="font-medium text-navy-800">{{ $apartamento->num_apto }}</td>
                                     <td>{{ $apartamento->piso }}</td>

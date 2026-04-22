@@ -106,10 +106,10 @@
             <i class="fas fa-users w-5 text-center"></i>
             <span x-show="sidebarOpen" x-transition>Propietarios</span>
         </a>
-        <a href="{{ route('condominio.afilapto.index') }}"
-           class="sidebar-link {{ request()->routeIs('condominio.afilapto.*') || request()->routeIs('condominio.afilpagointegral.*') ? 'active' : '' }}">
+        <a href="{{ route('condominio.afiliaciones-apto.index') }}"
+           class="sidebar-link {{ request()->routeIs('condominio.afiliaciones-apto.*') || request()->routeIs('condominio.afilpagointegral.*') ? 'active' : '' }}">
             <i class="fas fa-link w-5 text-center"></i>
-            <span x-show="sidebarOpen" x-transition>Afiliaciones</span>
+            <span x-show="sidebarOpen" x-transition>Afilapto</span>
         </a>
         @endcan
         @endunless
@@ -382,7 +382,7 @@
         <a href="{{ route('condominio.edificios.index') }}" class="sidebar-link {{ request()->routeIs('condominio.edificios.*') ? 'active' : '' }}"><i class="fas fa-city w-5 text-center"></i><span>Edificios</span></a>
         <a href="{{ route('condominio.apartamentos.index') }}" class="sidebar-link {{ request()->routeIs('condominio.apartamentos.*') ? 'active' : '' }}"><i class="fas fa-door-open w-5 text-center"></i><span>Apartamentos</span></a>
         <a href="{{ route('condominio.propietarios.index') }}" class="sidebar-link {{ request()->routeIs('condominio.propietarios.*') ? 'active' : '' }}"><i class="fas fa-users w-5 text-center"></i><span>Propietarios</span></a>
-        <a href="{{ route('condominio.afilapto.index') }}" class="sidebar-link {{ request()->routeIs('condominio.afilapto.*') || request()->routeIs('condominio.afilpagointegral.*') ? 'active' : '' }}"><i class="fas fa-link w-5 text-center"></i><span>Afiliaciones</span></a>
+        <a href="{{ route('condominio.afiliaciones-apto.index') }}" class="sidebar-link {{ request()->routeIs('condominio.afiliaciones-apto.*') || request()->routeIs('condominio.afilpagointegral.*') ? 'active' : '' }}"><i class="fas fa-link w-5 text-center"></i><span>Afilapto</span></a>
         @endcan
         @endunless
 

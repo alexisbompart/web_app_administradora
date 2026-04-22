@@ -178,7 +178,12 @@ class EdificioImportController extends Controller
 
         // Pre-load lookups
         $companias = Compania::pluck('id', 'cod_compania')->toArray();
-        $existingEdificios = Edificio::withTrashed()->pluck('id', 'cod_edif')->toArray();
+        // Clave: "cod_edif|compania_id" — mismo cod_edif con distinta compania es un registro diferente
+        $existingEdificios = Edificio::withTrashed()
+            ->get(['id', 'cod_edif', 'compania_id'])
+            ->keyBy(fn($e) => $e->cod_edif . '|' . $e->compania_id)
+            ->map(fn($e) => $e->id)
+            ->toArray();
 
         $rows = [];
         $errors = [];
@@ -222,8 +227,9 @@ class EdificioImportController extends Controller
                 continue;
             }
 
-            // Determine status
-            $existingId = $existingEdificios[$codEdif] ?? null;
+            // Determine status — unicidad por cod_edif + compania_id
+            $lookupKey = $codEdif . '|' . $companiaId;
+            $existingId = $existingEdificios[$lookupKey] ?? null;
             $status = $existingId ? 'update' : 'new';
 
             // Build mapped data
@@ -336,15 +342,19 @@ class EdificioImportController extends Controller
         }
 
         $duplicateAction = $request->input('duplicate_action');
-        $results = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'errors' => []];
+        $results = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'skipped_list' => [], 'errors' => []];
 
         foreach ($rows as $row) {
             $data = array_filter($row['data'], fn($v) => $v !== null);
             $codEdif = $data['cod_edif'] ?? $row['display']['cod_edif'] ?? '';
 
             try {
-                // Use upsert: insert or update by cod_edif
-                $existing = Edificio::withTrashed()->where('cod_edif', $codEdif)->first();
+                // Unicidad por cod_edif + compania_id
+                $companiaId = $data['compania_id'] ?? null;
+                $existing = Edificio::withTrashed()
+                    ->where('cod_edif', $codEdif)
+                    ->where('compania_id', $companiaId)
+                    ->first();
 
                 if ($existing) {
                     if ($duplicateAction === 'update') {
@@ -355,6 +365,12 @@ class EdificioImportController extends Controller
                         $results['updated']++;
                     } else {
                         $results['skipped']++;
+                        $results['skipped_list'][] = [
+                            'line'     => $row['line'],
+                            'cod_edif' => $codEdif,
+                            'nombre'   => $row['display']['nombre'] ?? '--',
+                            'ciudad'   => $row['display']['ciudad'] ?? '--',
+                        ];
                     }
                 } else {
                     Edificio::create($data);

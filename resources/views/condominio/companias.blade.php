@@ -35,7 +35,7 @@
                         <tbody>
                             @foreach($companias as $compania)
                                 <tr>
-                                    <td class="font-medium text-navy-800">{{ $compania->codigo }}</td>
+                                    <td class="font-medium text-navy-800">{{ $compania->cod_compania }}</td>
                                     <td>{{ $compania->nombre }}</td>
                                     <td>{{ $compania->rif }}</td>
                                     <td>{{ $compania->telefono }}</td>

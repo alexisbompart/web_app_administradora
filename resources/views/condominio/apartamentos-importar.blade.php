@@ -70,29 +70,31 @@
 
         {{-- Error Details --}}
         @if(count($results['errors']) > 0)
-        <div class="card" x-data="{ showErrors: false }">
-            <div class="card-header cursor-pointer" @click="showErrors = !showErrors">
+        <div class="card border-red-200" x-data="{ showErrors: true }">
+            <div class="card-header cursor-pointer bg-red-50" @click="showErrors = !showErrors">
                 <h3 class="text-sm font-heading font-semibold text-red-600 flex items-center justify-between w-full">
                     <span><i class="fas fa-exclamation-triangle mr-2"></i>Detalle de Errores ({{ count($results['errors']) }})</span>
                     <i class="fas" :class="showErrors ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                 </h3>
             </div>
             <div class="card-body p-0" x-show="showErrors" x-transition>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-96 overflow-y-auto">
                     <table class="table-custom">
                         <thead>
                             <tr>
                                 <th>Linea</th>
+                                <th>COD_EDIF</th>
                                 <th>Num Apto</th>
-                                <th>Razon</th>
+                                <th>Razón</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($results['errors'] as $err)
-                            <tr>
-                                <td>{{ $err['line'] }}</td>
-                                <td class="font-medium">{{ $err['num_apto'] ?: '--' }}</td>
-                                <td class="text-red-600 text-xs">{{ $err['reason'] }}</td>
+                            <tr class="bg-red-50">
+                                <td class="text-xs">{{ $err['line'] }}</td>
+                                <td class="text-xs font-medium">{{ $err['cod_edif'] ?? '--' }}</td>
+                                <td class="font-medium text-sm">{{ $err['num_apto'] ?: '--' }}</td>
+                                <td class="text-red-600 text-xs font-medium">{{ $err['reason'] }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -155,6 +157,46 @@
             </div>
         </div>
 
+        {{-- Panel de errores del preview --}}
+        @if($summary['error'] > 0)
+        <div class="card border-red-200" x-data="{ show: true }">
+            <div class="card-header cursor-pointer bg-red-50" @click="show = !show">
+                <h3 class="text-sm font-heading font-semibold text-red-600 flex items-center justify-between w-full">
+                    <span><i class="fas fa-exclamation-triangle mr-2"></i>Filas con errores ({{ $summary['error'] }}) — estas filas NO se importarán</span>
+                    <i class="fas" :class="show ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                </h3>
+            </div>
+            <div class="card-body p-0" x-show="show" x-transition>
+                <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>Linea</th>
+                                <th>COD_EDIF</th>
+                                <th>Compañía</th>
+                                <th>NUM_APTO</th>
+                                <th>Propietario</th>
+                                <th>Razón del Error</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach(collect($rows)->where('status', 'error') as $row)
+                            <tr class="bg-red-50">
+                                <td class="text-xs">{{ $row['line'] }}</td>
+                                <td class="text-xs font-medium">{{ $row['display']['cod_edif'] ?? '--' }}</td>
+                                <td class="text-xs">{{ $row['display']['compania'] ?? '--' }}</td>
+                                <td class="text-xs font-medium">{{ $row['display']['num_apto'] ?? '--' }}</td>
+                                <td class="text-xs">{{ \Illuminate\Support\Str::limit($row['display']['nombre'] ?? '', 30) }}</td>
+                                <td class="text-red-600 text-xs font-medium">{{ implode(', ', $row['errors']) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- Preview Table --}}
         <div class="card">
             <div class="card-header">
@@ -170,6 +212,7 @@
                                 <th>Linea</th>
                                 <th>Estado</th>
                                 <th>COD_EDIF</th>
+                                <th>Compañía</th>
                                 <th>NUM_APTO</th>
                                 <th>Propietario</th>
                                 <th>Alicuota</th>
@@ -191,6 +234,7 @@
                                     @endif
                                 </td>
                                 <td class="text-xs">{{ $row['display']['cod_edif'] ?? '--' }}</td>
+                                <td class="text-xs">{{ $row['display']['compania'] ?? '--' }}</td>
                                 <td class="font-medium text-sm">{{ $row['display']['num_apto'] ?? '--' }}</td>
                                 <td class="text-xs">{{ \Illuminate\Support\Str::limit($row['display']['nombre'] ?? '', 30) }}</td>
                                 <td class="text-xs">{{ $row['display']['alicuota'] ?? '--' }}</td>

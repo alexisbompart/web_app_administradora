@@ -11,13 +11,49 @@ use Illuminate\Http\Request;
 
 class AfilAptoController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $afilaptos = Afilapto::with(['edificio', 'apartamento', 'compania', 'afilpagointegral'])
-            ->orderByDesc('id')
-            ->paginate(20);
+        $filtro      = $request->input('filtro');
+        $edificioId  = $request->input('edificio_id');
+        $buscarApto  = $request->input('apto');
+        $buscarPint  = $request->input('pint');
+        $estatus     = $request->input('estatus');
 
-        return view('condominio.afilapto', compact('afilaptos'));
+        $query = Afilapto::with(['edificio', 'apartamento', 'compania', 'afilpagointegral']);
+
+        // Filtros de incompletos (tarjetas de alerta)
+        if ($filtro === 'sin_apto') {
+            $query->whereNull('apartamento_id');
+        } elseif ($filtro === 'sin_edificio') {
+            $query->whereNull('edificio_id');
+        } elseif ($filtro === 'incompletos') {
+            $query->where(fn($q) => $q->whereNull('apartamento_id')->orWhereNull('edificio_id'));
+        }
+
+        // Filtros de búsqueda
+        if ($edificioId) {
+            $query->where('edificio_id', $edificioId);
+        }
+        if ($buscarApto) {
+            $query->whereHas('apartamento', fn($q) => $q->where('num_apto', 'ilike', "%{$buscarApto}%"));
+        }
+        if ($buscarPint) {
+            $query->where('cod_pint', 'ilike', "%{$buscarPint}%");
+        }
+        if ($estatus) {
+            $query->where('estatus_afil', $estatus);
+        }
+
+        $afilaptos = $query->orderByDesc('id')->paginate(20)->withQueryString();
+
+        $sinApto     = Afilapto::whereNull('apartamento_id')->count();
+        $sinEdificio = Afilapto::whereNull('edificio_id')->count();
+        $edificios   = Edificio::orderBy('nombre')->get(['id', 'nombre', 'cod_edif']);
+
+        return view('condominio.afilapto', compact(
+            'afilaptos', 'sinApto', 'sinEdificio', 'filtro',
+            'edificioId', 'buscarApto', 'buscarPint', 'estatus', 'edificios'
+        ));
     }
 
     public function create()
@@ -41,7 +77,7 @@ class AfilAptoController extends Controller
 
         Afilapto::create($request->all());
 
-        return redirect()->route('condominio.afilapto.index')
+        return redirect()->route('condominio.afiliaciones-apto.index')
             ->with('success', 'Afiliacion creada exitosamente');
     }
 
@@ -69,16 +105,16 @@ class AfilAptoController extends Controller
 
         $afilapto->update($request->all());
 
-        return redirect()->route('condominio.afilapto.index')
+        return redirect()->route('condominio.afiliaciones-apto.index')
             ->with('success', 'Afiliacion actualizada exitosamente');
     }
 
     public function destroy(Afilapto $afilapto)
     {
-        $afilapto->afilpagointegral?->delete();
+        $afilapto->afilpagointegral()->delete();
         $afilapto->delete();
 
-        return redirect()->route('condominio.afilapto.index')
+        return redirect()->route('condominio.afiliaciones-apto.index')
             ->with('success', 'Afiliacion eliminada exitosamente');
     }
 }

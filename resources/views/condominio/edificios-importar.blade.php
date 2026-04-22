@@ -56,6 +56,41 @@
             Importacion completada. {{ $results['imported'] }} nuevos, {{ $results['updated'] }} actualizados, {{ $results['skipped'] }} omitidos.
         </div>
 
+        @if($results['skipped'] > 0)
+        <div class="card" x-data="{ showSkipped: false }">
+            <div class="card-header cursor-pointer" @click="showSkipped = !showSkipped">
+                <h3 class="text-sm font-heading font-semibold text-yellow-600 flex items-center justify-between w-full">
+                    <span><i class="fas fa-forward mr-2"></i>Edificios Omitidos ({{ $results['skipped'] }})</span>
+                    <i class="fas" :class="showSkipped ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                </h3>
+            </div>
+            <div class="card-body p-0" x-show="showSkipped" x-transition>
+                <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>Linea</th>
+                                <th>Cod Edif</th>
+                                <th>Nombre</th>
+                                <th>Ciudad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($results['skipped_list'] as $omitido)
+                            <tr>
+                                <td class="text-xs">{{ $omitido['line'] }}</td>
+                                <td class="font-medium text-sm">{{ $omitido['cod_edif'] ?: '--' }}</td>
+                                <td class="text-xs">{{ $omitido['nombre'] }}</td>
+                                <td class="text-xs">{{ $omitido['ciudad'] }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        @endif
+
         @if(count($results['errors']) > 0)
         <div class="card" x-data="{ showErrors: false }">
             <div class="card-header cursor-pointer" @click="showErrors = !showErrors">

@@ -69,8 +69,19 @@ class ApartamentoImportController extends Controller
         $headerFields = $this->parseHeader($lines[0]);
         $headerIndex = $this->buildHeaderIndex($headerFields);
 
-        // Pre-load edificios for COD_EDIF lookup
-        $edificios = Edificio::pluck('id', 'cod_edif')->toArray();
+        // Pre-load edificios — clave "cod_edif|cod_compania" para distinguir mismo número en distinta compañía
+        $edificiosRaw = Edificio::with('compania')->get(['id', 'cod_edif', 'compania_id']);
+        // Mapa por "cod_edif|cod_compania" => edificio_id
+        $edificiosPorEdifCompania = $edificiosRaw
+            ->filter(fn($e) => $e->compania)
+            ->keyBy(fn($e) => $e->cod_edif . '|' . $e->compania->cod_compania)
+            ->map(fn($e) => $e->id)
+            ->toArray();
+        // Mapa simple por cod_edif => [lista de edificio_ids] para detectar ambigüedad
+        $edificiosPorCod = $edificiosRaw
+            ->groupBy('cod_edif')
+            ->map(fn($group) => $group->pluck('id')->toArray())
+            ->toArray();
 
         // Pre-load existing apartments for duplicate detection
         $existingAptos = Apartamento::select('id', 'edificio_id', 'num_apto')
@@ -98,15 +109,26 @@ class ApartamentoImportController extends Controller
                 $rowData[$sourceCol] = $value;
             }
 
-            // Resolve edificio_id from COD_EDIF
-            $codEdif = $rowData['COD_EDIF'] ?? null;
+            // Resolve edificio_id usando COD_EDIF + COMPANIA para distinguir mismo número en distinta compañía
+            $codEdif    = $rowData['COD_EDIF']   ?? null;
+            $codCompania = $rowData['COMPANIA']  ?? null;
             $edificioId = null;
-            if ($codEdif && isset($edificios[$codEdif])) {
-                $edificioId = $edificios[$codEdif];
-            } elseif ($codEdif) {
-                $errors[] = "COD_EDIF '{$codEdif}' no encontrado en edificios";
-            } else {
+
+            if (!$codEdif) {
                 $errors[] = "COD_EDIF vacio";
+            } elseif ($codCompania && isset($edificiosPorEdifCompania[$codEdif . '|' . $codCompania])) {
+                // Coincidencia exacta por cod_edif + compania
+                $edificioId = $edificiosPorEdifCompania[$codEdif . '|' . $codCompania];
+            } elseif (!$codCompania && isset($edificiosPorCod[$codEdif])) {
+                $ids = $edificiosPorCod[$codEdif];
+                if (count($ids) === 1) {
+                    // Solo un edificio con ese código — sin ambigüedad
+                    $edificioId = $ids[0];
+                } else {
+                    $errors[] = "COD_EDIF '{$codEdif}' existe en " . count($ids) . " compañías distintas y el campo COMPANIA está vacío";
+                }
+            } else {
+                $errors[] = "COD_EDIF '{$codEdif}'" . ($codCompania ? " con COMPANIA '{$codCompania}'" : '') . " no encontrado en edificios";
             }
 
             $numApto = $rowData['NUM_APTO'] ?? null;
@@ -166,12 +188,13 @@ class ApartamentoImportController extends Controller
                 'errors' => $errors,
                 'existing_id' => $existingId,
                 'display' => [
-                    'cod_edif' => $codEdif,
-                    'num_apto' => $numApto,
-                    'nombre' => $rowData['NOMBRE_PROPIETARIO'] ?? '',
-                    'alicuota' => $rowData['ALICUOTA'] ?? '',
-                    'email' => $rowData['EMAIL'] ?? '',
-                    'estatus' => $rowData['STATUS'] ?? '',
+                    'cod_edif'   => $codEdif,
+                    'compania'   => $codCompania ?? '',
+                    'num_apto'   => $numApto,
+                    'nombre'     => $rowData['NOMBRE_PROPIETARIO'] ?? '',
+                    'alicuota'   => $rowData['ALICUOTA'] ?? '',
+                    'email'      => $rowData['EMAIL'] ?? '',
+                    'estatus'    => $rowData['STATUS'] ?? '',
                 ],
                 'data' => $mapped,
             ];
@@ -219,9 +242,10 @@ class ApartamentoImportController extends Controller
         foreach ($rows as $row) {
             if ($row['status'] === 'error') {
                 $results['errors'][] = [
-                    'line' => $row['line'],
-                    'reason' => implode(', ', $row['errors']),
+                    'line'     => $row['line'],
+                    'cod_edif' => $row['display']['cod_edif'] ?? '',
                     'num_apto' => $row['display']['num_apto'] ?? '',
+                    'reason'   => implode(', ', $row['errors']),
                 ];
                 continue;
             }
@@ -254,9 +278,10 @@ class ApartamentoImportController extends Controller
                 }
             } catch (\Exception $e) {
                 $results['errors'][] = [
-                    'line' => $row['line'],
-                    'reason' => $e->getMessage(),
+                    'line'     => $row['line'],
+                    'cod_edif' => $row['display']['cod_edif'] ?? '',
                     'num_apto' => $numApto ?? '',
+                    'reason'   => $e->getMessage(),
                 ];
             }
         }

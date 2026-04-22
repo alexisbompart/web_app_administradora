@@ -878,16 +878,78 @@ class PagoIntegralController extends Controller
             $query->where('estatus', $request->estatus);
         }
 
+        if ($request->filled('banco_id')) {
+            $query->where('banco_id', $request->banco_id);
+        }
+
+        if ($request->filled('tipo_operacion')) {
+            $query->where('tipo_operacion', $request->tipo_operacion);
+        }
+
+        if ($request->filled('mercantil_estatus')) {
+            $query->where('mercantil_estatus_proceso', $request->mercantil_estatus);
+        }
+
+        if ($request->filled('fecha_desde')) {
+            $query->whereDate('fecha', '>=', $request->fecha_desde);
+        }
+
+        if ($request->filled('fecha_hasta')) {
+            $query->whereDate('fecha', '<=', $request->fecha_hasta);
+        }
+
+        // Pestaña activa: afiliaciones | nuevas | desafiliaciones
+        $tab = request('tab', 'afiliaciones');
+
+        if ($tab === 'afiliaciones') {
+            $query->where('tipo_operacion', 'A')->where('estatus', 'A');
+        } elseif ($tab === 'nuevas') {
+            $query->where('tipo_operacion', 'A')->where('estatus', 'P');
+        } else {
+            $query->where('tipo_operacion', 'D');
+        }
+
         $afiliaciones = $query->orderBy('apellidos')->paginate(25)->withQueryString();
 
         $stats = [
-            'total'      => Afilpagointegral::count(),
-            'activos'    => Afilpagointegral::where('estatus', 'A')->count(),
-            'pendientes' => Afilpagointegral::where('estatus', 'P')->count(),
-            'inactivos'  => Afilpagointegral::where('estatus', 'I')->count(),
+            'total'        => Afilpagointegral::count(),
+            'activos'      => Afilpagointegral::where('estatus', 'A')->where('tipo_operacion', 'A')->count(),
+            'pendientes'   => Afilpagointegral::where('estatus', 'P')->where('tipo_operacion', 'A')->count(),
+            'desafiliados' => Afilpagointegral::where('tipo_operacion', 'D')->count(),
         ];
 
-        return view('financiero.afiliaciones', compact('afiliaciones', 'stats'));
+        $bancos = $this->bancosAfiliacion();
+
+        // Contar pendientes Mercantil para mostrar botones de acción
+        $mercantilBanco = Banco::where('iniciales', 'BM')->first();
+        // Afiliaciones listas para generar Mdomi: solo estatus='P' sin archivo enviado
+        $mercantilPendientesAfil = $mercantilBanco
+            ? Afilpagointegral::where('banco_id', $mercantilBanco->id)
+                ->where('tipo_operacion', 'A')
+                ->where('estatus', 'P')
+                ->whereNull('mercantil_archivo_enviado')
+                ->count()
+            : 0;
+        // Desafiliaciones listas para generar Mdesdomi: estatus P o I, sin archivo enviado
+        $mercantilPendientesDesafil = $mercantilBanco
+            ? Afilpagointegral::where('banco_id', $mercantilBanco->id)
+                ->where('tipo_operacion', 'D')
+                ->whereIn('estatus', ['P', 'I'])
+                ->whereNull('mercantil_archivo_enviado')
+                ->count()
+            : 0;
+        // Archivos ya enviados esperando respuesta del banco
+        $mercantilEsperandoRespuesta = $mercantilBanco
+            ? Afilpagointegral::where('banco_id', $mercantilBanco->id)
+                ->where('mercantil_estatus_proceso', 'P')
+                ->whereNotNull('mercantil_archivo_enviado')
+                ->count()
+            : 0;
+
+        return view('financiero.afiliaciones', compact(
+            'afiliaciones', 'stats', 'bancos',
+            'mercantilPendientesAfil', 'mercantilPendientesDesafil', 'mercantilEsperandoRespuesta'
+        ));
     }
 
     private function bancosAfiliacion()
@@ -980,17 +1042,22 @@ class PagoIntegralController extends Controller
             ]
         );
 
+        $mercantilBanco = Banco::where('iniciales', 'BM')->first();
+        $esMercantil = $mercantilBanco && (int) $request->banco_id === $mercantilBanco->id;
+
         Afilpagointegral::create(array_merge(
             $request->except(['apartamento_id', '_token', '_method']),
             [
-                'afilapto_id' => $afilapto->id,
-                'fecha'       => now()->toDateString(),
-                'creado_por'  => auth()->user()->name,
+                'afilapto_id'    => $afilapto->id,
+                'fecha'          => now()->toDateString(),
+                'creado_por'     => auth()->user()->name,
+                'tipo_operacion' => 'A',
+                // mercantil_estatus_proceso se setea al generar el archivo Mdomi
             ]
         ));
 
         return redirect()->route('financiero.pago-integral.afiliaciones')
-            ->with('success', 'Afiliacion registrada correctamente.');
+            ->with('success', 'Afiliacion registrada correctamente.' . ($esMercantil ? ' Recuerde generar el archivo Mdomi para enviar al Banco Mercantil.' : ''));
     }
 
     public function editAfiliacion(Afilpagointegral $afiliacion)
@@ -1007,15 +1074,15 @@ class PagoIntegralController extends Controller
         $prefijos = [8 => '0134', 3 => '0105', 5 => '0114'];
 
         $request->validate([
-            'apartamento_id' => 'required|exists:cond_aptos,id',
-            'letra'          => 'required|in:V,E,J,G,P',
-            'cedula_rif'     => 'required|string|max:20',
-            'nombres'        => 'required|string|max:100',
-            'apellidos'      => 'required|string|max:100',
-            'email'          => 'nullable|email|max:100',
-            'email_alterno'  => 'nullable|email|max:100',
-            'banco_id'       => 'nullable|exists:bancos,id',
-            'cta_bancaria'   => [
+            'apartamento_id'             => 'nullable|exists:cond_aptos,id',
+            'letra'                      => 'required|in:V,E,J,G,P',
+            'cedula_rif'                 => 'required|string|max:20',
+            'nombres'                    => 'required|string|max:100',
+            'apellidos'                  => 'required|string|max:100',
+            'email'                      => 'nullable|email|max:100',
+            'email_alterno'              => 'nullable|email|max:100',
+            'banco_id'                   => 'nullable|exists:bancos,id',
+            'cta_bancaria'               => [
                 'nullable', 'string', 'size:20',
                 function ($attr, $value, $fail) use ($request, $prefijos) {
                     $id = (int) $request->banco_id;
@@ -1024,40 +1091,64 @@ class PagoIntegralController extends Controller
                     }
                 },
             ],
-            'tipo_cta'       => 'nullable|string|max:20',
-            'cod_sucursal'   => 'nullable|string|max:20',
-            'telefono'       => 'nullable|string|max:20',
-            'celular'        => 'nullable|string|max:20',
-            'fax'            => 'nullable|string|max:20',
-            'otro'           => 'nullable|string|max:20',
-            'calle_avenida'  => 'nullable|string|max:200',
-            'edif_casa'      => 'nullable|string|max:100',
-            'piso_apto'      => 'nullable|string|max:50',
-            'urbanizacion'   => 'nullable|string|max:100',
-            'ciudad'         => 'nullable|string|max:100',
-            'estado_id'      => 'nullable|exists:estados,id',
-            'nom_usuario'    => 'nullable|string|max:100',
-            'estatus'        => 'required|in:A,I,P',
-            'observaciones'  => 'nullable|string',
+            'tipo_cta'                   => 'nullable|string|max:20',
+            'cod_sucursal'               => 'nullable|string|max:20',
+            'telefono'                   => 'nullable|string|max:20',
+            'celular'                    => 'nullable|string|max:20',
+            'fax'                        => 'nullable|string|max:20',
+            'otro'                       => 'nullable|string|max:20',
+            'calle_avenida'              => 'nullable|string|max:200',
+            'edif_casa'                  => 'nullable|string|max:100',
+            'piso_apto'                  => 'nullable|string|max:50',
+            'urbanizacion'               => 'nullable|string|max:100',
+            'ciudad'                     => 'nullable|string|max:100',
+            'estado_id'                  => 'nullable|exists:estados,id',
+            'nom_usuario'                => 'nullable|string|max:100',
+            'estatus'                    => 'required|in:A,I,P',
+            'observaciones'              => 'nullable|string',
+            'tipo_operacion'             => 'nullable|in:A,D',
+            'mercantil_estatus_proceso'  => 'nullable|in:P,A,R',
+            'mercantil_archivo_enviado'  => 'nullable|string|max:100',
+            'mercantil_fecha_envio'      => 'nullable|date',
+            'mercantil_fecha_respuesta'  => 'nullable|date',
+            'mercantil_cod_respuesta'    => 'nullable|string|max:10',
+            'mercantil_mensaje'          => 'nullable|string|max:200',
         ]);
 
-        $apartamento = Apartamento::findOrFail($request->apartamento_id);
-        $compania    = Compania::first();
+        $extra = [];
 
-        $afilapto = Afilapto::firstOrCreate(
-            ['apartamento_id' => $apartamento->id],
-            [
-                'edificio_id'      => $apartamento->edificio_id,
-                'compania_id'      => $compania?->id,
-                'estatus_afil'     => 'A',
-                'fecha_afiliacion' => now()->toDateString(),
-            ]
+        // Solo actualizar el inmueble si se seleccionó uno
+        if ($request->filled('apartamento_id')) {
+            $apartamento = Apartamento::findOrFail($request->apartamento_id);
+            $compania    = Compania::first();
+            $afilapto    = Afilapto::firstOrCreate(
+                ['apartamento_id' => $apartamento->id],
+                [
+                    'edificio_id'      => $apartamento->edificio_id,
+                    'compania_id'      => $compania?->id,
+                    'estatus_afil'     => 'A',
+                    'fecha_afiliacion' => now()->toDateString(),
+                ]
+            );
+            $extra['afilapto_id'] = $afilapto->id;
+        }
+
+        $datos = array_merge(
+            $request->except(['apartamento_id', '_token', '_method']),
+            $extra
         );
 
-        $afiliacion->update(array_merge(
-            $request->except(['apartamento_id', '_token', '_method']),
-            ['afilapto_id' => $afilapto->id]
-        ));
+        // Si se cambia tipo_operacion a 'D' en banco directo (no Mercantil), forzar estatus 'I'
+        $afiliacion->refresh(); // asegura banco cargado
+        $bancoId = $request->filled('banco_id') ? (int) $request->banco_id : $afiliacion->banco_id;
+        $bancoMerc = Banco::where('iniciales', 'BM')->first();
+        $esMercantil = $bancoMerc && $bancoId === $bancoMerc->id;
+
+        if (($datos['tipo_operacion'] ?? $afiliacion->tipo_operacion) === 'D' && !$esMercantil) {
+            $datos['estatus'] = 'I';
+        }
+
+        $afiliacion->update($datos);
 
         return redirect()->route('financiero.pago-integral.afiliaciones')
             ->with('success', 'Afiliacion actualizada correctamente.');
@@ -1065,13 +1156,251 @@ class PagoIntegralController extends Controller
 
     public function desafiliar(Afilpagointegral $afiliacion)
     {
-        $afiliacion->update([
-            'estatus'       => 'I',
-            'observaciones' => ($afiliacion->observaciones ? $afiliacion->observaciones . ' | ' : '')
-                               . 'Desafiliado por ' . auth()->user()->name . ' el ' . now()->format('d/m/Y H:i'),
-        ]);
+        $data = [
+            'estatus'        => 'I',
+            'tipo_operacion' => 'D',
+            'observaciones'  => ($afiliacion->observaciones ? $afiliacion->observaciones . ' | ' : '')
+                                . 'Desafiliado por ' . auth()->user()->name . ' el ' . now()->format('d/m/Y H:i'),
+        ];
+
+        // Si es Mercantil, marcar como pendiente de envío de archivo
+        if ($afiliacion->esMercantil()) {
+            $data['mercantil_estatus_proceso'] = 'P';
+        }
+
+        $afiliacion->update($data);
 
         return redirect()->route('financiero.pago-integral.afiliaciones')
-            ->with('success', 'Afiliado desafiliado correctamente.');
+            ->with('success', 'Afiliado desafiliado correctamente.' . ($afiliacion->esMercantil() ? ' Recuerde generar el archivo Mdesdomi para Mercantil.' : ''));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // PROCESO MERCANTIL: GENERACIÓN Y PROCESAMIENTO DE ARCHIVOS
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Genera el archivo Mdomi (afiliaciones) o Mdesdomi (desafiliaciones) para Mercantil.
+     * Formato posicional fijo según especificación bancaria.
+     * Línea 1: Header  — comienza con "1"
+     * Línea 2+: Detalle — comienza con "2A" (afiliación) o "2D" (desafiliación)
+     */
+    public function generarArchivoMercantilAfiliacion(Request $request)
+    {
+        $request->validate([
+            'tipo_operacion' => 'required|in:A,D',
+        ]);
+
+        $tipo       = $request->tipo_operacion; // A o D
+        $esDesa     = $tipo === 'D';
+        $bancoMerc  = Banco::where('iniciales', 'BM')->first();
+
+        if (!$bancoMerc) {
+            return back()->with('error', 'Banco Mercantil no encontrado en el sistema.');
+        }
+
+        // Traer afiliaciones Mercantil pendientes del tipo indicado
+        $query = Afilpagointegral::with(['afilapto.apartamento', 'afilapto.edificio', 'banco'])
+            ->where('banco_id', $bancoMerc->id)
+            ->where('tipo_operacion', $tipo);
+
+        if ($esDesa) {
+            // Desafiliaciones: estatus='P' o 'I', sin archivo enviado aún
+            $query->whereIn('estatus', ['P', 'I'])
+                  ->whereNull('mercantil_archivo_enviado');
+        } else {
+            // Afiliaciones: solo estatus='P' (pendiente de aprobación bancaria) sin archivo enviado
+            $query->where('estatus', 'P')
+                  ->whereNull('mercantil_archivo_enviado');
+        }
+
+        $afiliaciones = $query->get();
+
+        if ($afiliaciones->isEmpty()) {
+            return back()->with('error', 'No hay ' . ($esDesa ? 'desafiliaciones' : 'afiliaciones') . ' Mercantil pendientes de envío.');
+        }
+
+        $emp    = self::EMPRESA_MERCANTIL;
+        $hoy    = now()->format('Ymd');
+        $hora   = now()->format('Hi');
+        $count  = str_pad($afiliaciones->count(), 7, '0', STR_PAD_LEFT);
+
+        // ── Header ──
+        // Basado en Mdomi267.txt: 1BAMRVECA    202623021102112J0001426434DOMIC...
+        $header = '1'
+            . str_pad('BAMRVECA', 12)
+            . $hoy
+            . $hora
+            . '1'                                     // secuencia lote
+            . $count
+            . 'J' . str_pad(ltrim($emp['rif'], 'J'), 10)
+            . 'DOMIC'
+            . now()->format('Ymd')
+            . str_pad('1', 10, '0', STR_PAD_LEFT)
+            . str_pad($emp['cuenta'], 20);
+        $header = str_pad($header, 200);
+
+        $lines = [$header];
+
+        foreach ($afiliaciones as $afil) {
+            $tipoLinea  = $esDesa ? 'D' : 'A';        // 2A o 2D
+            $letra      = $afil->letra ?? 'V';
+            $cedula     = str_pad($afil->cedula_rif ?? '', 9, '0', STR_PAD_LEFT);
+            $cuenta     = str_pad($afil->cta_bancaria ?? '', 20, '0', STR_PAD_RIGHT);
+            $nombre     = strtoupper(trim(($afil->nombres ?? '') . ' ' . ($afil->apellidos ?? '')));
+            $cedFull    = $letra . str_pad($afil->cedula_rif ?? '', 10, '0', STR_PAD_LEFT);
+            $telefono   = str_pad(preg_replace('/\D/', '', $afil->celular ?? $afil->telefono ?? ''), 11, '0', STR_PAD_LEFT);
+            $email      = str_pad($afil->email ?? '', 40);
+            $numApto    = $afil->afilapto?->apartamento?->num_apto ?? '';
+            $codSuc     = str_pad($afil->cod_sucursal ?? '0000', 4, '0', STR_PAD_LEFT);
+
+            // Formato basado en Mdomi267.txt línea "2A":
+            // 2A{cedula9}{cuenta20}{espacios10}{cedula17}{espacios17}{telefono11}{fecha8}{email40}{nombre30}...
+            $detalle = '2' . $tipoLinea
+                . $cedula
+                . $cuenta
+                . str_pad('', 10)
+                . str_pad($cedFull, 17)
+                . str_pad('', 17)
+                . $telefono
+                . $hoy
+                . $email
+                . str_pad($nombre, 30)
+                . str_pad($numApto, 17)
+                . $codSuc
+                . str_pad('', 30);
+
+            $lines[] = str_pad($detalle, 200);
+        }
+
+        $content  = implode("\r\n", $lines);
+        $prefix   = $esDesa ? 'Mdesdomi' : 'Mdomi';
+        $filename = $prefix . $afiliaciones->count() . '.txt';
+
+        // Marcar afiliaciones como archivo enviado y pendiente de respuesta
+        $afiliaciones->each(fn($a) => $a->update([
+            'mercantil_archivo_enviado'  => $filename,
+            'mercantil_fecha_envio'      => now()->toDateString(),
+            'mercantil_estatus_proceso'  => 'P',
+        ]));
+
+        return response($content, 200, [
+            'Content-Type'        => 'text/plain',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * Anula (revierte) un archivo Mdomi/Mdesdomi ya generado,
+     * limpiando los campos mercantil para que los registros vuelvan a estar disponibles.
+     */
+    public function anularArchivoMercantilAfiliacion(Request $request)
+    {
+        $request->validate([
+            'archivo'        => 'required|string|max:100',
+            'tipo_operacion' => 'required|in:A,D',
+        ]);
+
+        $archivo = $request->archivo;
+        $tipo    = $request->tipo_operacion;
+
+        $registros = Afilpagointegral::where('mercantil_archivo_enviado', $archivo)
+            ->where('tipo_operacion', $tipo)
+            ->where('mercantil_estatus_proceso', 'P') // solo los que aún no tienen respuesta
+            ->get();
+
+        if ($registros->isEmpty()) {
+            return back()->with('error', "No se encontraron registros anulables para el archivo «{$archivo}». Es posible que ya tengan respuesta procesada.");
+        }
+
+        $registros->each(fn($a) => $a->update([
+            'mercantil_archivo_enviado'  => null,
+            'mercantil_fecha_envio'      => null,
+            'mercantil_estatus_proceso'  => null,
+        ]));
+
+        return back()->with('success', "Archivo «{$archivo}» anulado. {$registros->count()} registro(s) volvieron a estar disponibles para generar un nuevo archivo.");
+    }
+
+    /**
+     * Formulario para procesar la respuesta de Mercantil (afiliaciones/desafiliaciones).
+     */
+    public function procesarRespuestaMercantilAfiliacionForm()
+    {
+        $pendientes = Afilpagointegral::where('mercantil_estatus_proceso', 'P')
+            ->whereNotNull('mercantil_archivo_enviado')
+            ->with('banco')
+            ->get()
+            ->groupBy('tipo_operacion');
+
+        return view('financiero.pago-integral-respuesta-afiliacion-mercantil', compact('pendientes'));
+    }
+
+    /**
+     * Procesa el archivo de respuesta de Mercantil para afiliaciones/desafiliaciones.
+     * Formato línea "2D" o "2A": tipo+letra+cédula(9)+...+código_respuesta(4)+mensaje
+     */
+    public function procesarRespuestaMercantilAfiliacion(Request $request)
+    {
+        $request->validate([
+            'archivo_respuesta' => 'required|file|mimes:txt,dat|max:5120',
+            'tipo_operacion'    => 'required|in:A,D',
+        ]);
+
+        $tipo    = $request->tipo_operacion;
+        $content = file_get_contents($request->file('archivo_respuesta')->getRealPath());
+        $lines   = explode("\n", str_replace("\r\n", "\n", $content));
+
+        $resultados   = [];
+        $aprobados    = 0;
+        $rechazados   = 0;
+        $noEncontrados = 0;
+
+        foreach ($lines as $line) {
+            $line = rtrim($line);
+            if (strlen($line) < 12) continue;
+
+            $tipoLinea = substr($line, 0, 2); // "2A" o "2D"
+            if ($tipoLinea !== '2' . $tipo && $tipoLinea[0] !== '2') continue;
+            if ($line[0] !== '2') continue;
+
+            // Cédula: posición 2-10 (9 chars, padded con ceros)
+            $cedulaPad = substr($line, 2, 9);
+            $cedula    = ltrim($cedulaPad, '0');
+
+            // Código respuesta Mercantil — posición variable, buscar en últimos 50 chars
+            // Formato Mdesdomi respuesta: código en pos ~100-104
+            $codResp = trim(substr($line, 100, 4));
+            $mensaje = trim(substr($line, 104, 40));
+            $exitoso = $codResp === '0074' || $codResp === '0000';
+
+            // Buscar afiliación por cédula
+            $afil = Afilpagointegral::where('cedula_rif', $cedula)
+                ->where('tipo_operacion', $tipo)
+                ->where('mercantil_estatus_proceso', 'P')
+                ->first();
+
+            if (!$afil) {
+                $noEncontrados++;
+                $resultados[] = ['cedula' => $cedula, 'estado' => 'no_encontrado', 'mensaje' => 'No encontrado en sistema', 'cod' => $codResp];
+                continue;
+            }
+
+            $afil->update([
+                'mercantil_estatus_proceso'  => $exitoso ? 'A' : 'R',
+                'mercantil_fecha_respuesta'  => now()->toDateString(),
+                'mercantil_cod_respuesta'    => $codResp,
+                'mercantil_mensaje'          => $mensaje ?: ($exitoso ? 'APROBADO' : 'RECHAZADO'),
+            ]);
+
+            if ($exitoso) {
+                $aprobados++;
+                $resultados[] = ['cedula' => $cedula, 'estado' => 'aprobado', 'mensaje' => $mensaje ?: 'APROBADO', 'cod' => $codResp];
+            } else {
+                $rechazados++;
+                $resultados[] = ['cedula' => $cedula, 'estado' => 'rechazado', 'mensaje' => $mensaje ?: 'RECHAZADO', 'cod' => $codResp];
+            }
+        }
+
+        return view('financiero.pago-integral-respuesta-afiliacion-mercantil', compact('resultados', 'aprobados', 'rechazados', 'noEncontrados'));
     }
 }

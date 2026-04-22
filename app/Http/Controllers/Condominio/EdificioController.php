@@ -14,11 +14,22 @@ class EdificioController extends Controller
         $this->middleware('permission:sistema.ver-dashboard');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $edificios = Edificio::with('compania')->paginate(15);
+        $buscar = $request->input('buscar');
 
-        return view('condominio.edificios', compact('edificios'));
+        $edificios = Edificio::with('compania')
+            ->when($buscar, function ($q) use ($buscar) {
+                $q->where(function ($q2) use ($buscar) {
+                    $q2->where('nombre', 'ilike', "%{$buscar}%")
+                       ->orWhere('cod_edif', 'ilike', "%{$buscar}%");
+                });
+            })
+            ->orderBy('nombre')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('condominio.edificios', compact('edificios', 'buscar'));
     }
 
     public function create()

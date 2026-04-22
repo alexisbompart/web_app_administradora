@@ -213,13 +213,20 @@
             </h3>
         </div>
         <div class="card-body">
+            @if($afiliacion && $afiliacion->afilapto && !$afiliacion->afilapto->apartamento_id)
+            <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800 mb-3 flex items-center gap-2">
+                <i class="fas fa-exclamation-triangle"></i>
+                Este registro no tiene inmueble vinculado. Puede asignarlo seleccionando uno abajo, o dejarlo en blanco para no modificarlo.
+            </div>
+            @endif
             <div>
                 <label class="block text-sm font-semibold text-navy-800 mb-1">
-                    Inmueble (Edificio / Apto) <span class="text-red-500">*</span>
+                    Inmueble (Edificio / Apto)
+                    @if(!$afiliacion) <span class="text-red-500">*</span> @endif
                 </label>
-                <select name="apartamento_id" required
+                <select name="apartamento_id" {{ !$afiliacion ? 'required' : '' }}
                     class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-burgundy-800">
-                    <option value="">-- Seleccione un inmueble --</option>
+                    <option value="">-- {{ $afiliacion ? 'Sin cambio / Sin inmueble' : 'Seleccione un inmueble' }} --</option>
                     @foreach($apartamentos as $apto)
                     <option value="{{ $apto->id }}"
                         {{ old('apartamento_id', $afiliacion->afilapto->apartamento_id ?? '') == $apto->id ? 'selected' : '' }}>
@@ -227,6 +234,12 @@
                     </option>
                     @endforeach
                 </select>
+                @if($afiliacion && $afiliacion->afilapto?->apartamento_id)
+                <p class="text-xs text-slate_custom-400 mt-1">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Actual: {{ $afiliacion->afilapto->edificio->nombre ?? '' }} — Apto {{ $afiliacion->afilapto->apartamento->num_apto ?? '' }}
+                </p>
+                @endif
             </div>
         </div>
     </div>
@@ -347,7 +360,7 @@
 
                 <div>
                     <label class="block text-sm font-semibold text-navy-800 mb-1">Estatus</label>
-                    <select name="estatus"
+                    <select name="estatus" required
                         class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-burgundy-800">
                         <option value="A" {{ old('estatus', $afiliacion->estatus ?? 'A') === 'A' ? 'selected' : '' }}>Activo</option>
                         <option value="I" {{ old('estatus', $afiliacion->estatus ?? '') === 'I' ? 'selected' : '' }}>Inactivo</option>
@@ -364,6 +377,80 @@
             </div>
         </div>
     </div>
+
+    {{-- Section 7: Proceso Mercantil (solo en edicion y si es banco Mercantil) --}}
+    @if($afiliacion && $afiliacion->esMercantil())
+    <div class="card mb-6 border-l-4 border-l-amber-500">
+        <div class="card-header">
+            <h3 class="text-sm font-heading font-semibold text-navy-800">
+                <i class="fas fa-university mr-2 text-amber-600"></i>Proceso Mercantil
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div>
+                    <label class="block text-sm font-semibold text-navy-800 mb-1">Tipo de Operacion</label>
+                    <select name="tipo_operacion"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-burgundy-800">
+                        <option value="A" {{ old('tipo_operacion', $afiliacion->tipo_operacion ?? 'A') === 'A' ? 'selected' : '' }}>Afiliacion</option>
+                        <option value="D" {{ old('tipo_operacion', $afiliacion->tipo_operacion ?? '') === 'D' ? 'selected' : '' }}>Desafiliacion</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-navy-800 mb-1">Estatus Proceso Mercantil</label>
+                    <select name="mercantil_estatus_proceso"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-burgundy-800">
+                        <option value="" {{ old('mercantil_estatus_proceso', $afiliacion->mercantil_estatus_proceso ?? '') === '' ? 'selected' : '' }}>— Sin proceso iniciado —</option>
+                        <option value="P" {{ old('mercantil_estatus_proceso', $afiliacion->mercantil_estatus_proceso ?? '') === 'P' ? 'selected' : '' }}>P — Pendiente de respuesta</option>
+                        <option value="A" {{ old('mercantil_estatus_proceso', $afiliacion->mercantil_estatus_proceso ?? '') === 'A' ? 'selected' : '' }}>A — Aprobado</option>
+                        <option value="R" {{ old('mercantil_estatus_proceso', $afiliacion->mercantil_estatus_proceso ?? '') === 'R' ? 'selected' : '' }}>R — Rechazado</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-navy-800 mb-1">Archivo Enviado</label>
+                    <input type="text" name="mercantil_archivo_enviado" maxlength="100"
+                        value="{{ old('mercantil_archivo_enviado', $afiliacion->mercantil_archivo_enviado ?? '') }}"
+                        placeholder="Ej: Mdomi5.txt"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-burgundy-800">
+                    <p class="text-xs text-slate_custom-400 mt-1">Dejar vacio para que el registro vuelva a estar disponible al generar archivo</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-navy-800 mb-1">Fecha de Envio</label>
+                    <input type="date" name="mercantil_fecha_envio"
+                        value="{{ old('mercantil_fecha_envio', $afiliacion->mercantil_fecha_envio?->format('Y-m-d') ?? '') }}"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-burgundy-800">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-navy-800 mb-1">Codigo de Respuesta</label>
+                    <input type="text" name="mercantil_cod_respuesta" maxlength="10"
+                        value="{{ old('mercantil_cod_respuesta', $afiliacion->mercantil_cod_respuesta ?? '') }}"
+                        placeholder="Ej: 0074"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-burgundy-800">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-navy-800 mb-1">Fecha de Respuesta</label>
+                    <input type="date" name="mercantil_fecha_respuesta"
+                        value="{{ old('mercantil_fecha_respuesta', $afiliacion->mercantil_fecha_respuesta?->format('Y-m-d') ?? '') }}"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-burgundy-800">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-semibold text-navy-800 mb-1">Mensaje de Respuesta</label>
+                    <input type="text" name="mercantil_mensaje" maxlength="200"
+                        value="{{ old('mercantil_mensaje', $afiliacion->mercantil_mensaje ?? '') }}"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-burgundy-800">
+                </div>
+
+            </div>
+        </div>
+    </div>
+    @endif
 
     <div class="flex gap-3">
         <button type="submit" class="btn-primary">

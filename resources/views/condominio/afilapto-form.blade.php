@@ -5,7 +5,7 @@
                 <h2 class="text-2xl font-heading font-bold text-navy-800">{{ isset($afilapto) ? 'Editar' : 'Crear' }} Afiliacion</h2>
                 <p class="text-sm text-slate_custom-400 mt-1">{{ isset($afilapto) ? 'Modificar datos de la afiliacion #'.$afilapto->id : 'Registrar nueva afiliacion de apartamento' }}</p>
             </div>
-            <a href="{{ route('condominio.afilapto.index') }}" class="btn-secondary"><i class="fas fa-arrow-left mr-2"></i>Volver</a>
+            <a href="{{ route('condominio.afiliaciones-apto.index') }}" class="btn-secondary"><i class="fas fa-arrow-left mr-2"></i>Volver</a>
         </div>
     </x-slot>
 
@@ -28,7 +28,7 @@
                         .catch(() => { this.apartamentos = []; this.loading = false; });
                 }
              }">
-            <form action="{{ isset($afilapto) ? route('condominio.afilapto.update', $afilapto) : route('condominio.afilapto.store') }}" method="POST">
+            <form action="{{ isset($afilapto) ? route('condominio.afiliaciones-apto.update', $afilapto) : route('condominio.afiliaciones-apto.store') }}" method="POST">
                 @csrf
                 @if(isset($afilapto)) @method('PUT') @endif
 
@@ -97,7 +97,7 @@
                 </div>
 
                 <div class="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-slate_custom-200">
-                    <a href="{{ route('condominio.afilapto.index') }}" class="btn-secondary"><i class="fas fa-times mr-2"></i>Cancelar</a>
+                    <a href="{{ route('condominio.afiliaciones-apto.index') }}" class="btn-secondary"><i class="fas fa-times mr-2"></i>Cancelar</a>
                     <button type="submit" class="btn-primary"><i class="fas fa-save mr-2"></i>{{ isset($afilapto) ? 'Actualizar' : 'Crear' }}</button>
                 </div>
             </form>

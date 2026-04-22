@@ -4,7 +4,7 @@ namespace App\Models\Condominio;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Afilapto extends Model
 {
@@ -39,8 +39,8 @@ class Afilapto extends Model
         return $this->belongsTo(Compania::class);
     }
 
-    public function afilpagointegral(): HasOne
+    public function afilpagointegral(): HasMany
     {
-        return $this->hasOne(Afilpagointegral::class);
+        return $this->hasMany(Afilpagointegral::class);
     }
 }

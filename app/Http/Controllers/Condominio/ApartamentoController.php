@@ -14,11 +14,27 @@ class ApartamentoController extends Controller
         $this->middleware('permission:sistema.ver-dashboard');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $apartamentos = Apartamento::with('edificio')->paginate(15);
+        $buscar    = $request->input('buscar');
+        $edificioId = $request->input('edificio_id');
+        $companiaId = $request->input('compania_id');
+        $estatus   = $request->input('estatus');
 
-        return view('condominio.apartamentos', compact('apartamentos'));
+        $apartamentos = Apartamento::with(['edificio.compania'])
+            ->when($buscar, fn($q) => $q->where('num_apto', 'ilike', "%{$buscar}%"))
+            ->when($edificioId, fn($q) => $q->where('edificio_id', $edificioId))
+            ->when($companiaId, fn($q) => $q->whereHas('edificio', fn($q2) => $q2->where('compania_id', $companiaId)))
+            ->when($estatus, fn($q) => $q->where('estatus', $estatus))
+            ->orderBy('edificio_id')
+            ->orderBy('num_apto')
+            ->paginate(15)
+            ->withQueryString();
+
+        $edificios  = Edificio::orderBy('nombre')->get(['id', 'nombre', 'cod_edif']);
+        $companias  = \App\Models\Condominio\Compania::orderBy('nombre')->get(['id', 'nombre']);
+
+        return view('condominio.apartamentos', compact('apartamentos', 'buscar', 'edificioId', 'companiaId', 'estatus', 'edificios', 'companias'));
     }
 
     public function create()

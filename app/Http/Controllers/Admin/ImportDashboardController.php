@@ -132,7 +132,7 @@ class ImportDashboardController extends Controller
                 'tabla' => 'afilapto',
                 'icono' => 'fas fa-link',
                 'color' => 'violet',
-                'ruta_import' => 'condominio.afilapto.importar',
+                'ruta_import' => 'condominio.afiliaciones-apto.importar',
                 'ruta_listado' => null,
                 'tipo' => 'Incremental',
             ],

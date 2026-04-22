@@ -31,12 +31,12 @@ Route::get('propietarios/generar', [PropietarioController::class, 'previewGenera
 Route::post('propietarios/generar/batch', [PropietarioController::class, 'executeBatch'])->name('propietarios.generate.batch');
 Route::resource('propietarios', PropietarioController::class)->parameters(['propietarios' => 'propietario']);
 
-// Afilapto: import routes BEFORE resource
-Route::get('afilapto/importar', [AfilAptoImportController::class, 'showForm'])->name('afilapto.importar');
-Route::post('afilapto/importar/preview', [AfilAptoImportController::class, 'preview'])->name('afilapto.importar.preview');
-Route::post('afilapto/importar/execute', [AfilAptoImportController::class, 'execute'])->name('afilapto.importar.execute');
+// Afiliaciones Apto: import routes BEFORE resource
+Route::get('afiliaciones-apto/importar', [AfilAptoImportController::class, 'showForm'])->name('afiliaciones-apto.importar');
+Route::post('afiliaciones-apto/importar/preview', [AfilAptoImportController::class, 'preview'])->name('afiliaciones-apto.importar.preview');
+Route::post('afiliaciones-apto/importar/execute', [AfilAptoImportController::class, 'execute'])->name('afiliaciones-apto.importar.execute');
 
-Route::resource('afilapto', AfilAptoController::class)->except(['show']);
+Route::resource('afiliaciones-apto', AfilAptoController::class)->except(['show'])->parameters(['afiliaciones-apto' => 'afilapto']);
 
 // Afilpagointegral: import routes BEFORE resource
 Route::get('afilpagointegral/importar', [AfilPagointegralImportController::class, 'showForm'])->name('afilpagointegral.importar');

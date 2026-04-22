@@ -18,9 +18,25 @@
 
     <div class="card">
         <div class="card-header">
-            <h3 class="text-sm font-heading font-semibold text-navy-800">
-                <i class="fas fa-city mr-2 text-burgundy-800"></i>Listado de Edificios
-            </h3>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 class="text-sm font-heading font-semibold text-navy-800">
+                    <i class="fas fa-city mr-2 text-burgundy-800"></i>Listado de Edificios
+                </h3>
+                <form method="GET" action="{{ route('condominio.edificios.index') }}" class="flex items-center gap-2">
+                    <div class="relative">
+                        <input type="text" name="buscar" value="{{ $buscar ?? '' }}"
+                               placeholder="Buscar por nombre o código..."
+                               class="pl-9 pr-4 py-1.5 text-sm border border-slate_custom-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-burgundy-800/30 w-64">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate_custom-400 text-xs"></i>
+                    </div>
+                    <button type="submit" class="btn-primary text-xs px-3 py-1.5">Buscar</button>
+                    @if($buscar)
+                        <a href="{{ route('condominio.edificios.index') }}" class="btn-secondary text-xs px-3 py-1.5">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    @endif
+                </form>
+            </div>
         </div>
         <div class="card-body p-0">
             @if($edificios->count())
@@ -40,7 +56,7 @@
                         <tbody>
                             @foreach($edificios as $edificio)
                                 <tr>
-                                    <td class="font-medium text-navy-800">{{ $edificio->codigo }}</td>
+                                    <td class="font-medium text-navy-800">{{ $edificio->cod_edif }}</td>
                                     <td>{{ $edificio->nombre }}</td>
                                     <td>{{ $edificio->compania?->nombre ?? 'N/A' }}</td>
                                     <td>{{ $edificio->total_aptos }}</td>

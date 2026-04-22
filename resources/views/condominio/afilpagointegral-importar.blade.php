@@ -103,7 +103,7 @@
             <a href="{{ route('condominio.afilpagointegral.importar') }}" class="btn-secondary">
                 <i class="fas fa-file-import mr-2"></i>Importar Otro Archivo
             </a>
-            <a href="{{ route('condominio.afilapto.importar') }}" class="btn-primary">
+            <a href="{{ route('condominio.afiliaciones-apto.importar') }}" class="btn-primary">
                 <i class="fas fa-arrow-right mr-2"></i>Siguiente: Importar afilapto
             </a>
         </div>
@@ -112,44 +112,80 @@
     {{-- ==================== PREVIEW STATE ==================== --}}
     @elseif(isset($summary))
     <div class="space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="stat-card">
                 <div class="flex items-center justify-between">
-                    <div class="stat-label">Total Filas</div>
-                    <div class="w-10 h-10 bg-slate_custom-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-file-alt text-slate_custom-500"></i>
-                    </div>
+                    <div class="stat-label">Total Archivo</div>
+                    <div class="w-10 h-10 bg-slate_custom-100 rounded-lg flex items-center justify-center"><i class="fas fa-file-alt text-slate_custom-500"></i></div>
                 </div>
-                <div class="stat-value">{{ $summary['total'] }}</div>
+                <div class="stat-value">{{ number_format($summary['total']) }}</div>
             </div>
             <div class="stat-card">
                 <div class="flex items-center justify-between">
-                    <div class="stat-label">Nuevos</div>
-                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-plus-circle text-green-600"></i>
-                    </div>
+                    <div class="stat-label">Se Importarán</div>
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center"><i class="fas fa-check-circle text-green-600"></i></div>
                 </div>
-                <div class="stat-value text-green-600">{{ $summary['new'] }}</div>
+                <div class="stat-value text-green-600">{{ number_format($summary['new'] + $summary['update']) }}</div>
+                <p class="text-xs text-slate_custom-400 mt-1">{{ $summary['new'] }} nuevos + {{ $summary['update'] }} actualizados</p>
+            </div>
+            <div class="stat-card">
+                <div class="flex items-center justify-between">
+                    <div class="stat-label">Omitidos</div>
+                    <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center"><i class="fas fa-forward text-amber-600"></i></div>
+                </div>
+                <div class="stat-value text-amber-600">{{ number_format($summary['omitidos']) }}</div>
+                <p class="text-xs text-amber-500 mt-1">Sin edif/apto en afilapto</p>
             </div>
             <div class="stat-card">
                 <div class="flex items-center justify-between">
                     <div class="stat-label">Ya Existentes</div>
-                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-sync-alt text-blue-600"></i>
-                    </div>
+                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center"><i class="fas fa-sync-alt text-blue-600"></i></div>
                 </div>
-                <div class="stat-value text-blue-600">{{ $summary['update'] }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="flex items-center justify-between">
-                    <div class="stat-label">Con Errores</div>
-                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-times-circle text-red-600"></i>
-                    </div>
-                </div>
-                <div class="stat-value text-red-600">{{ $summary['error'] }}</div>
+                <div class="stat-value text-blue-600">{{ number_format($summary['update']) }}</div>
             </div>
         </div>
+
+        {{-- Resumen motivos de omisión --}}
+        @if($summary['omitidos'] > 0)
+        <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+            <p class="text-sm font-semibold text-amber-800 mb-3"><i class="fas fa-info-circle mr-2"></i>Motivos de omisión (registros que NO se importarán):</p>
+            <div class="space-y-1">
+                @foreach($summary['omitidos_por_razon'] as $razon => $cantidad)
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-amber-700">{{ $razon }}</span>
+                    <span class="font-semibold text-amber-900 bg-amber-200 px-2 py-0.5 rounded-full text-xs">{{ number_format($cantidad) }}</span>
+                </div>
+                @endforeach
+            </div>
+        </div>
+
+        <div class="card" x-data="{ show: false }">
+            <div class="card-header cursor-pointer bg-amber-50" @click="show = !show">
+                <h3 class="text-sm font-heading font-semibold text-amber-700 flex items-center justify-between w-full">
+                    <span><i class="fas fa-forward mr-2"></i>Detalle de omitidos ({{ count($omitidos) }}{{ count($omitidos) >= 500 ? '+' : '' }}) — NO se importarán</span>
+                    <i class="fas" :class="show ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                </h3>
+            </div>
+            <div class="card-body p-0" x-show="show" x-transition>
+                <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                    <table class="table-custom">
+                        <thead><tr><th>Linea</th><th>Afil ID</th><th>Cédula</th><th>Nombres</th><th>Motivo</th></tr></thead>
+                        <tbody>
+                            @foreach($omitidos as $om)
+                            <tr class="bg-amber-50">
+                                <td class="text-xs">{{ $om['line'] }}</td>
+                                <td class="text-xs font-medium">{{ $om['afilapto_id'] }}</td>
+                                <td class="text-xs">{{ $om['cedula'] }}</td>
+                                <td class="text-xs">{{ \Illuminate\Support\Str::limit($om['nombres'] ?? '', 25) }}</td>
+                                <td class="text-xs text-amber-700 font-medium">{{ $om['reason'] }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        @endif
 
         <div class="card">
             <div class="card-header">
@@ -279,7 +315,7 @@
         <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl flex items-center gap-2">
             <i class="fas fa-info-circle"></i>
             <span>Este archivo se importa <strong>antes</strong> de afilapto.csv. Despues de importar este archivo, importe
-                <a href="{{ route('condominio.afilapto.importar') }}" class="underline font-semibold">afilapto.csv</a>
+                <a href="{{ route('condominio.afiliaciones-apto.importar') }}" class="underline font-semibold">afilapto.csv</a>
                 para completar la relacion.
             </span>
         </div>

@@ -26,11 +26,13 @@
             .hero-slide {
                 min-width:100%; height:100%;
                 display:flex; align-items:center; justify-content:center;
-                background-size:cover; background-position:center; position:relative;
+                background-size:cover; background-position:center center; position:relative;
+                background-attachment:scroll; background-repeat:no-repeat;
+                -webkit-backface-visibility:hidden; backface-visibility:hidden;
             }
             .hero-slide-overlay {
                 position:absolute; inset:0;
-                background: linear-gradient(135deg, rgba(39,50,114,0.88) 0%, rgba(104,12,62,0.60) 60%, rgba(0,0,0,0.65) 100%);
+                background: linear-gradient(135deg, rgba(39,50,114,0.55) 0%, rgba(104,12,62,0.30) 60%, rgba(0,0,0,0.35) 100%);
             }
             .hero-content { position:relative; z-index:10; text-align:center; padding:0 1.5rem; max-width:860px; }
 
@@ -91,14 +93,22 @@
                 <div class="flex items-center justify-between h-[68px]">
 
                     <!-- Logo -->
-                    <a href="/" class="flex items-center gap-3 flex-shrink-0 group">
-                        <div class="w-10 h-10 bg-gradient-to-br from-burgundy-800 to-navy-800 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition">
-                            <span class="text-white font-heading font-bold text-sm">AI</span>
-                        </div>
-                        <div class="leading-tight hidden sm:block">
-                            <span class="font-heading font-bold text-navy-800 text-sm block tracking-tight">{{ $settings['nombre_empresa'] ?? 'Administradora' }}</span>
-                            <span class="font-heading font-semibold text-burgundy-800 text-xs block tracking-wide">{{ $settings['subtitulo_empresa'] ?? 'Integral' }}</span>
-                        </div>
+                    <a href="/" class="flex items-center flex-shrink-0 group">
+                        @if(!empty($settings['logo_url']))
+                            <img src="{{ asset('storage/' . $settings['logo_url']) }}"
+                                 alt="{{ $settings['titulo_sitio'] ?? 'Administradora Integral' }}"
+                                 class="h-12 w-auto object-contain transition group-hover:opacity-85">
+                        @else
+                            <div class="flex items-center gap-2">
+                                <div class="w-10 h-10 bg-gradient-to-br from-burgundy-800 to-navy-800 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition">
+                                    <span class="text-white font-heading font-bold text-sm">AI</span>
+                                </div>
+                                <div class="leading-tight hidden sm:block">
+                                    <span class="font-heading font-bold text-navy-800 text-sm block tracking-tight">{{ $settings['nombre_empresa'] ?? 'Administradora' }}</span>
+                                    <span class="font-heading font-semibold text-burgundy-800 text-xs block tracking-wide">{{ $settings['subtitulo_empresa'] ?? 'Integral' }}</span>
+                                </div>
+                            </div>
+                        @endif
                     </a>
 
                     <!-- Nav Desktop -->
@@ -256,7 +266,7 @@
                     <p class="text-white/50 text-xs uppercase tracking-widest mt-1 font-medium">Sedes</p>
                 </div>
                 <div>
-                    <p class="text-3xl font-heading font-black text-white">+500</p>
+                    <p class="text-3xl font-heading font-black text-white">+6500</p>
                     <p class="text-white/50 text-xs uppercase tracking-widest mt-1 font-medium">Condominios</p>
                 </div>
                 <div>

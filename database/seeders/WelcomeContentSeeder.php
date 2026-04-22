@@ -34,7 +34,7 @@ class WelcomeContentSeeder extends Seeder
                 'activo' => true,
             ],
             [
-                'titulo' => "Mas de 20 anos\nde Experiencia",
+                'titulo' => "Mas de 50 anos\nde Experiencia",
                 'subtitulo' => 'Personal altamente calificado para satisfacer las necesidades de nuestros clientes.',
                 'imagen' => 'sliders/slider-3.jpg',
                 'boton_texto' => 'Contactanos',
@@ -54,63 +54,192 @@ class WelcomeContentSeeder extends Seeder
         // ============ PRODUCTOS ============
         $products = [
             [
-                'titulo' => 'Integral Pago',
-                'slogan' => 'Tu condominio al dia, sin complicaciones',
-                'descripcion' => 'Servicio de debito automatico para el pago de condominio. Olvide las colas y los retrasos, su recibo se paga automaticamente cada mes.',
-                'detalle' => '<div class="space-y-4">
-                    <h4 class="font-heading font-bold text-navy-800">Beneficios del Pago Integral</h4>
-                    <ul class="list-disc pl-5 space-y-2 text-sm text-slate_custom-500">
-                        <li>Debito automatico mensual sin comisiones adicionales</li>
-                        <li>Evite recargos por mora y gestiones de cobranza</li>
-                        <li>Reciba su comprobante de pago por correo electronico</li>
-                        <li>Consulte su estado de cuenta en linea las 24 horas</li>
-                        <li>Proceso de afiliacion rapido y sencillo</li>
-                    </ul>
-                    <p class="text-sm text-slate_custom-400 italic">Disponible para todos los bancos nacionales.</p>
+                'titulo' => 'Administracion Integral',
+                'slogan' => 'Gerencie el funcionamiento de su condominio',
+                'descripcion' => 'Con mas de 50 anos de experiencia, nuestro servicio bandera de administracion es la solucion completa para la gestion de su condominio. Nos encargamos de: facturar, cobrar y pagar los gastos comunes, asegurando la tranquilidad y el buen funcionamiento de su comunidad.',
+                'detalle' => '<div class="space-y-5">
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Operativo</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Asesoria experta a las Juntas de Condominio en materia de Ley de Propiedad Horizontal.</li>
+                            <li>Coordinacion de Asambleas (Ordinarias y Extraordinarias), incluyendo la publicacion en prensa.</li>
+                            <li>Reportes a solicitud de la Junta de Condominio (deuda pendiente, movimiento de fondos y fondo de reserva).</li>
+                            <li>Supervision anual detallada del condominio con registro fotografico.</li>
+                            <li>Atencion personalizada con un Ejecutivo de Operaciones asignado a la residencia.</li>
+                            <li>Elaboracion de Cartas Consultas de interes para la comunidad.</li>
+                            <li>Entrega de Informe y Cuenta Anual, de acuerdo a la Ley de Propiedad Horizontal.</li>
+                            <li>Elaboracion mensual de la relacion de gastos conforme al presupuesto aprobado.</li>
+                            <li>Pre-facturacion para aprobacion de la Junta enviada con 2 dias de antelacion al cierre de cada mes.</li>
+                            <li>Envio electronico mensual de la relacion de gastos a cada propietario.</li>
+                            <li>Acceso en linea 24/7 para consultar su relacion de condominio.</li>
+                            <li>Visita mensual del Ejecutivo de Operaciones a las residencias.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Administrativo</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Gestion y pago a proveedores: Recepcion de facturas originales, verificacion y pago via transferencia.</li>
+                            <li>Pagos contra recaudacion: Eficiencia en el pago a proveedores una vez recaudado el gasto.</li>
+                            <li>Cajamatic: Servicio exclusivo que garantiza el deposito de fondos en la cuenta de la comunidad durante los primeros cinco dias habiles de cada mes.</li>
+                            <li>Atencion y respuesta a emergencias en los edificios.</li>
+                            <li>Retencion de impuestos a proveedores de servicios.</li>
+                            <li>Cronograma de Pagos a Proveedores y Juntas de Condominio.</li>
+                            <li>Pago de Servicios Publicos esenciales: Hidrocapital y Corpoelec.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Recursos Humanos</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Gestion general de nomina: Manejo completo incluyendo pagos parafiscales (L.P.H, S.S.O, Inces, Mintrass).</li>
+                            <li>Calculo y pago de beneficios: Liquidaciones, prestaciones sociales, vacaciones, aguinaldos y mas.</li>
+                            <li>Transferencia puntual del salario de los trabajadores.</li>
+                            <li>Impresion y entrega de recibos de pago a los trabajadores.</li>
+                            <li>Pago de bono de alimentacion a traves de tarjeta electronica.</li>
+                            <li>Inclusion de cargos extraordinarios en nomina (horas extras, bonos nocturnos, etc.).</li>
+                            <li>Creacion de un Fondo de Beneficios Sociales a los trabajadores.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Cobranzas</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Facilidad de pago en linea a traves de nuestra pagina web.</li>
+                            <li>Pago integral: Afiliandose a esta plataforma exclusiva de pago.</li>
+                            <li>Pagos en oficina hasta el ultimo dia habil del mes (Caracas, La Guaira y Valencia).</li>
+                            <li>Gestion extrajudicial a partir del tercer mes vencido via Escritorio Juridico.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Manejo de Fondos</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Reserva</li>
+                            <li>Contingencias</li>
+                            <li>Reparaciones</li>
+                            <li>Especial</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Contable</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Declaracion de ISLR.</li>
+                            <li>Actualizacion del RIF.</li>
+                            <li>Libros contables.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Legal</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Asesoria legal especializada en materia condominal y laboral.</li>
+                            <li>Cobranza extrajudicial a partir del tercer mes vencido.</li>
+                            <li>Asesorias en Asambleas de Condominio y elaboracion de cartas consultas para la comunidad.</li>
+                        </ul>
+                    </div>
                 </div>',
-                'icono' => 'fas fa-credit-card',
+                'icono' => 'fas fa-building',
                 'color' => '#680c3e',
                 'orden' => 1,
                 'activo' => true,
             ],
             [
-                'titulo' => 'Integral Web',
-                'slogan' => 'Tu comunidad en la palma de tu mano',
-                'descripcion' => 'Portal web exclusivo para propietarios. Consulte su estado de cuenta, registre pagos, descargue recibos y mantenga el control de su condominio.',
-                'detalle' => '<div class="space-y-4">
-                    <h4 class="font-heading font-bold text-navy-800">Funcionalidades del Portal Web</h4>
-                    <ul class="list-disc pl-5 space-y-2 text-sm text-slate_custom-500">
-                        <li>Consulta de estado de cuenta en tiempo real</li>
-                        <li>Registro de pagos por transferencia o deposito</li>
-                        <li>Descarga de recibos de condominio en PDF</li>
-                        <li>Historial completo de pagos realizados</li>
-                        <li>Notificaciones de nuevos recibos emitidos</li>
-                        <li>Acceso con usuario y clave personalizada</li>
-                    </ul>
-                    <p class="text-sm text-slate_custom-400 italic">Cada propietario recibe sus credenciales de acceso al momento de la afiliacion.</p>
+                'titulo' => 'Administracion PRO',
+                'slogan' => 'Administre sus propios fondos',
+                'descripcion' => 'La Junta de Condominio mantiene el control directo de los fondos de su edificio. Administradora Integral se encarga de procesar la facturacion y ejecutar los pagos autorizados por la Junta, asegurando una gestion transparente y eficiente con sus propios recursos.',
+                'detalle' => '<div class="space-y-5">
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Operativo</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Asesoria experta a las Juntas de Condominio en materia de Ley de Propiedad Horizontal.</li>
+                            <li>Coordinacion de Asambleas (Ordinarias y Extraordinarias), incluyendo la publicacion en prensa.</li>
+                            <li>Reportes a solicitud de la Junta de Condominio (deuda pendiente, movimiento de fondos y gastos).</li>
+                            <li>Supervision anual detallada del condominio con registro fotografico.</li>
+                            <li>Atencion personalizada con un Ejecutivo de Operaciones asignado a la Junta de Condominio.</li>
+                            <li>Elaboracion de Cartas Consultas de interes para la comunidad.</li>
+                            <li>Elaboracion mensual de la relacion de gastos conforme al presupuesto aprobado.</li>
+                            <li>Pre-facturacion para aprobacion de la Junta enviada con 2 dias de antelacion al cierre de cada mes.</li>
+                            <li>Envio electronico mensual de la relacion de gastos a cada propietario.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Administrativo</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Pago a proveedores via transferencia segun contrato o facturas firmadas por la Junta, previa provision de fondos.</li>
+                            <li>Pagos de Servicios Publicos: Hidrocapital y Corpoelec, previa provision de fondos.</li>
+                            <li>Pagos por emergencias previa provision de fondos por parte de la Junta de Condominio.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Recursos Humanos</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Manejo de la Nomina incluyendo pagos de salarios y parafiscales, previa provision de fondos.</li>
+                            <li>Calculos y pagos de beneficios: Liquidaciones, prestaciones sociales, vacaciones, aguinaldos, previa provision de fondos.</li>
+                            <li>Transferencia puntual del salario de los trabajadores, previa provision de fondos.</li>
+                            <li>Envio digital de recibos de pago a sus trabajadores.</li>
+                            <li>Transferencia de bono de alimentacion directamente a la cuenta del trabajador, previa provision de fondos.</li>
+                            <li>Recepcion y facturacion de cargos extraordinarios a la nomina (horas extras, bonos nocturnos, etc.).</li>
+                            <li>Creacion de un Fondo de Beneficios Sociales a los trabajadores.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Cobranzas</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Descarga de la deuda segun informacion suministrada por la Junta de Condominio.</li>
+                            <li>Envio a la Junta de Condominio relacion de la deuda al cierre de cada mes.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Facturacion de Fondos</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Facturacion de movimientos de fondos: Reserva, Contingencias, Reparaciones, Especial.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Contable <span class="text-burgundy-800 text-xs font-normal">(Costo adicional)</span></h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Actualizacion del RIF.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Legal</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Asesoria legal en materia condominal y laboral.</li>
+                            <li>Cobranza extrajudicial a partir del 3er mes vencido, sujeta a acuerdo previo con el Escritorio Juridico.</li>
+                            <li>Asesorias en Asambleas de Condominio y cartas consultas a la comunidad.</li>
+                        </ul>
+                    </div>
                 </div>',
-                'icono' => 'fas fa-globe',
+                'icono' => 'fas fa-user-tie',
                 'color' => '#273272',
                 'orden' => 2,
                 'activo' => true,
             ],
             [
-                'titulo' => 'Integral Cobranza',
-                'slogan' => 'Gestion efectiva para su comunidad',
-                'descripcion' => 'Departamento especializado en cobranza con estrategias puerta a puerta, telefonica, WhatsApp, correo electronico y gestion extrajudicial.',
-                'detalle' => '<div class="space-y-4">
-                    <h4 class="font-heading font-bold text-navy-800">Estrategias de Cobranza</h4>
-                    <ul class="list-disc pl-5 space-y-2 text-sm text-slate_custom-500">
-                        <li>Cobranza preventiva: recordatorios antes del vencimiento</li>
-                        <li>Cobranza administrativa: llamadas, SMS y WhatsApp</li>
-                        <li>Cobranza puerta a puerta en la residencia</li>
-                        <li>Gestion extrajudicial con nuestro departamento legal</li>
-                        <li>Convenios de pago personalizados</li>
-                        <li>Reportes de morosidad para la junta de condominio</li>
-                    </ul>
-                    <p class="text-sm text-slate_custom-400 italic">Nuestro equipo legal esta conformado por 5 abogados especializados en materia condominial.</p>
+                'titulo' => 'Service Administrativo',
+                'slogan' => 'Tenga el control de la administracion de su condominio',
+                'descripcion' => 'La Junta de Condominio mantiene el control total de la gestion del edificio. Administradora Integral se encarga exclusivamente de procesar la facturacion y la distribucion de los gastos comunes, facilitando su modelo de auto-administracion con eficiencia y transparencia.',
+                'detalle' => '<div class="space-y-5">
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Operativo</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Asesoria a las Juntas de Condominio en Ley de Propiedad Horizontal.</li>
+                            <li>Publicacion de Asambleas segun documento de condominio y Ley de Propiedad Horizontal.</li>
+                            <li>Coordinacion de Asambleas (Ordinarias y Extraordinarias) a solicitud especial de la Junta.</li>
+                            <li>Atencion personalizada con un Ejecutivo de Operaciones asignado a la Junta de Condominio.</li>
+                            <li>Elaboracion de Cartas Consultas de interes para la comunidad, a solicitud especial de la Junta.</li>
+                            <li>Elaboracion mensual de la relacion de gastos conforme al presupuesto aprobado por la Junta.</li>
+                            <li>Pre-facturacion para aprobacion de la Junta enviada con 2 dias de antelacion al cierre de cada mes.</li>
+                            <li>Envio electronico mensual de la relacion de gastos a cada propietario.</li>
+                            <li>Descarga de la relacion de deuda segun informacion suministrada por la Junta de Condominio.</li>
+                            <li>Envio a la Junta de Condominio la relacion de la deuda al cierre de cada mes.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-navy-800 mb-2">Legal</h4>
+                        <ul class="list-disc pl-5 space-y-1 text-sm text-slate_custom-500">
+                            <li>Asesoria legal en materia condominal y laboral.</li>
+                            <li>Cobranza extrajudicial a partir del 3er mes vencido, a solicitud especial de la Junta de Condominio.</li>
+                        </ul>
+                    </div>
                 </div>',
-                'icono' => 'fas fa-hand-holding-usd',
+                'icono' => 'fas fa-tools',
                 'color' => '#d4a017',
                 'orden' => 3,
                 'activo' => true,
@@ -150,6 +279,7 @@ class WelcomeContentSeeder extends Seeder
             ['clave' => 'titulo_sitio', 'valor' => 'Administradora Integral', 'tipo' => 'text', 'seccion' => 'general', 'etiqueta' => 'Titulo del Sitio'],
             ['clave' => 'nombre_empresa', 'valor' => 'Administradora', 'tipo' => 'text', 'seccion' => 'general', 'etiqueta' => 'Nombre Empresa (Header)'],
             ['clave' => 'subtitulo_empresa', 'valor' => 'Integral', 'tipo' => 'text', 'seccion' => 'general', 'etiqueta' => 'Subtitulo Empresa (Header)'],
+            ['clave' => 'logo_url', 'valor' => '', 'tipo' => 'image', 'seccion' => 'general', 'etiqueta' => 'Logo del sitio (ruta en storage)'],
 
             // ── Navegacion ──
             ['clave' => 'nav_link_1', 'valor' => 'Home', 'tipo' => 'text', 'seccion' => 'navegacion', 'etiqueta' => 'Nav Link 1'],

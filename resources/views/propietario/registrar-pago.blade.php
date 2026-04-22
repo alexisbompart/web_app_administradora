@@ -31,6 +31,47 @@
         </div>
     @endif
 
+    {{-- Alerta de pago pendiente de aprobacion --}}
+    @if($pagosPendientes->isNotEmpty())
+        <div class="card mb-6 border-2 border-amber-400">
+            <div class="card-body">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-clock text-amber-600 text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-heading font-bold text-amber-800 mb-1">Pago pendiente de aprobacion</h3>
+                        <p class="text-sm text-amber-700 mb-3">
+                            Ya registró un pago que está siendo revisado por el administrador.
+                            No puede registrar otro pago hasta que sea procesado.
+                        </p>
+                        <div class="space-y-2">
+                            @foreach($pagosPendientes as $pp)
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 flex flex-wrap items-center gap-4 text-sm">
+                                <span class="font-semibold text-amber-800">
+                                    <i class="fas fa-calendar mr-1"></i>
+                                    {{ \Carbon\Carbon::parse($pp->fecha_pago)->format('d/m/Y') }}
+                                </span>
+                                <span class="text-amber-700">
+                                    <i class="fas fa-hashtag mr-1"></i>Ref: {{ $pp->numero_referencia }}
+                                </span>
+                                <span class="font-bold text-amber-800">
+                                    Bs. {{ number_format($pp->monto_total, 2, ',', '.') }}
+                                </span>
+                                <span class="badge-warning">Pendiente de aprobacion</span>
+                            </div>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-amber-600 mt-3">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Si tiene alguna consulta, comuníquese con el departamento de cobranzas.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     @if($deudasPendientes->isEmpty())
         <div class="card">
             <div class="card-body text-center py-12">
@@ -39,6 +80,17 @@
                 </div>
                 <h3 class="text-lg font-heading font-semibold text-navy-800 mb-2">No tiene deudas pendientes</h3>
                 <p class="text-sm text-slate_custom-400">Todos sus recibos estan al dia.</p>
+            </div>
+        </div>
+    @elseif($pagosPendientes->isNotEmpty())
+        {{-- Bloquear formulario si hay pago pendiente --}}
+        <div class="card">
+            <div class="card-body text-center py-12">
+                <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-lock text-2xl text-amber-500"></i>
+                </div>
+                <h3 class="text-lg font-heading font-semibold text-navy-800 mb-2">Formulario bloqueado</h3>
+                <p class="text-sm text-slate_custom-400">Debe esperar a que su pago anterior sea aprobado o rechazado para poder registrar uno nuevo.</p>
             </div>
         </div>
     @elseif($deudasPendientes->count() > 4)
