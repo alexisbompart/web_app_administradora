@@ -295,7 +295,27 @@
                         <td class="text-xs text-slate_custom-400">{{ $afiliaciones->firstItem() + $loop->index }}</td>
                         <td class="font-mono text-xs font-semibold">{{ ($afil->letra ?? '') . $afil->cedula_rif }}</td>
                         <td>
-                            <div class="font-semibold text-navy-800 text-sm">{{ $afil->nombres }} {{ $afil->apellidos }}</div>
+                            <div class="font-semibold text-navy-800 text-sm
+                                @if($afil->afilaptos->isNotEmpty()) cursor-pointer hover:text-burgundy-800 transition-colors @endif"
+                                @if($afil->afilaptos->isNotEmpty())
+                                @click="
+                                    $dispatch('open-afilapto-modal', {
+                                        nombre: '{{ addslashes($afil->nombres . ' ' . $afil->apellidos) }}',
+                                        cedula: '{{ ($afil->letra ?? '') . $afil->cedula_rif }}',
+                                        afilaptos: {{ json_encode($afil->afilaptos->map(fn($a) => [
+                                            'edificio' => $a->edificio->nombre ?? '—',
+                                            'num_apto' => $a->apartamento->num_apto ?? '—',
+                                            'cod_pint' => $a->cod_pint ?? '',
+                                            'estatus'  => $a->estatus_afil ?? '—',
+                                        ])) }}
+                                    })
+                                "
+                                @endif>
+                                {{ $afil->nombres }} {{ $afil->apellidos }}
+                                @if($afil->afilaptos->isNotEmpty())
+                                    <i class="fas fa-building text-xs text-slate_custom-300 ml-1"></i>
+                                @endif
+                            </div>
                             @if($afil->email)
                                 <div class="text-xs text-slate_custom-400">{{ $afil->email }}</div>
                             @endif
@@ -310,8 +330,12 @@
                         </td>
                         <td class="font-mono text-xs">{{ $afil->cta_bancaria ?? '—' }}</td>
                         <td class="text-xs">
-                            <div class="font-semibold">{{ $afil->afilapto->edificio->nombre ?? '—' }}</div>
-                            <div class="text-slate_custom-400">Apto: {{ $afil->afilapto->apartamento->num_apto ?? '—' }}</div>
+                            @forelse($afil->afilaptos as $afilapto)
+                                <div class="font-semibold">{{ $afilapto->edificio->nombre ?? '—' }}</div>
+                                <div class="text-slate_custom-400">Apto: {{ $afilapto->apartamento->num_apto ?? '—' }}</div>
+                            @empty
+                                <span class="text-slate_custom-300">—</span>
+                            @endforelse
                         </td>
                         <td>
                             @if($afil->estatus === 'A')
@@ -368,7 +392,18 @@
                                    title="Editar">
                                     <i class="fas fa-edit mr-1"></i>Editar
                                 </a>
-                                @if($tabActual !== 'desafiliaciones' && $afil->estatus !== 'I')
+                                @if($tabActual === 'desafiliaciones')
+                                <form method="POST"
+                                      action="{{ route('financiero.pago-integral.afiliaciones.reactivar', $afil) }}"
+                                      onsubmit="return confirm('¿Confirma reactivar a {{ addslashes($afil->nombres . ' ' . $afil->apellidos) }}?')">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button type="submit"
+                                            class="text-xs py-1 px-3 rounded-lg font-semibold border border-green-300 text-green-700 bg-green-50 hover:bg-green-700 hover:text-white hover:border-green-700 transition-colors">
+                                        <i class="fas fa-user-check mr-1"></i>Reactivar
+                                    </button>
+                                </form>
+                                @elseif($afil->estatus !== 'I')
                                 <form method="POST"
                                       action="{{ route('financiero.pago-integral.afiliaciones.desafiliar', $afil) }}"
                                       onsubmit="return confirm('¿Confirma desafiliar a {{ addslashes($afil->nombres . ' ' . $afil->apellidos) }}?')">
@@ -402,6 +437,83 @@
         </div>
         <div class="p-4 border-t border-slate_custom-200">
             {{ $afiliaciones->withQueryString()->links() }}
+        </div>
+    </div>
+</div>
+
+{{-- Modal global de inmuebles afiliados --}}
+<div x-data="{
+        open: false,
+        nombre: '',
+        cedula: '',
+        afilaptos: [],
+        init() {
+            window.addEventListener('open-afilapto-modal', e => {
+                this.nombre   = e.detail.nombre;
+                this.cedula   = e.detail.cedula;
+                this.afilaptos = e.detail.afilaptos;
+                this.open     = true;
+            });
+        }
+     }"
+     x-show="open"
+     x-cloak
+     @keydown.escape.window="open = false"
+     class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+     style="display:none">
+
+    {{-- Backdrop --}}
+    <div class="absolute inset-0 bg-black/50" @click="open = false"></div>
+
+    {{-- Panel --}}
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+
+        {{-- Header --}}
+        <div class="bg-navy-800 text-white px-6 py-4 flex items-center justify-between shrink-0">
+            <div>
+                <div class="font-heading font-bold text-base" x-text="nombre"></div>
+                <div class="text-xs text-blue-200 font-mono mt-0.5" x-text="cedula"></div>
+            </div>
+            <button @click="open = false"
+                    class="text-white/70 hover:text-white transition-colors text-xl leading-none">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        {{-- Subheader --}}
+        <div class="px-6 py-2 bg-navy-800/10 border-b border-slate-200 shrink-0 flex items-center gap-2">
+            <i class="fas fa-building text-navy-800 text-xs"></i>
+            <span class="text-xs font-semibold text-navy-800">
+                Inmuebles afiliados — <span x-text="afilaptos.length"></span> registro(s)
+            </span>
+        </div>
+
+        {{-- Lista --}}
+        <div class="overflow-y-auto divide-y divide-slate-100">
+            <template x-for="(apt, i) in afilaptos" :key="i">
+                <div class="px-6 py-3 flex items-center justify-between gap-4">
+                    <div class="min-w-0">
+                        <div class="text-sm font-semibold text-navy-800 truncate" x-text="apt.edificio"></div>
+                        <div class="text-xs text-slate_custom-400">Apto: <span class="font-mono font-semibold" x-text="apt.num_apto"></span></div>
+                        <div class="text-xs font-mono text-slate_custom-300" x-show="apt.cod_pint" x-text="'PINT: ' + apt.cod_pint"></div>
+                    </div>
+                    <span class="text-xs shrink-0 px-2 py-0.5 rounded-full font-semibold"
+                          :class="{
+                              'bg-green-100 text-green-700': apt.estatus === 'A',
+                              'bg-red-100 text-red-700':   apt.estatus === 'D',
+                              'bg-amber-100 text-amber-700': apt.estatus !== 'A' && apt.estatus !== 'D'
+                          }"
+                          x-text="apt.estatus === 'A' ? 'Activo' : (apt.estatus === 'D' ? 'Desafiliado' : apt.estatus)">
+                    </span>
+                </div>
+            </template>
+        </div>
+
+        {{-- Footer --}}
+        <div class="px-6 py-3 border-t border-slate-200 shrink-0 flex justify-end">
+            <button @click="open = false" class="btn-secondary text-sm px-5 py-2">
+                Cerrar
+            </button>
         </div>
     </div>
 </div>

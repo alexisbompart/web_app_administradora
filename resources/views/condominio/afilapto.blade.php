@@ -175,7 +175,7 @@
                                 </td>
                                 <td class="text-xs">{{ $afil->fecha_afiliacion?->format('d/m/Y') ?? '--' }}</td>
                                 <td>
-                                    @if($afil->afilpagointegral)
+                                    @if($afil->afilpagointegral_id)
                                         <span class="badge-success text-xs"><i class="fas fa-check mr-1"></i>Si</span>
                                     @else
                                         <span class="badge-warning text-xs">No</span>

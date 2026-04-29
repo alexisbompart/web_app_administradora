@@ -205,42 +205,66 @@
         </div>
     </div>
 
-    {{-- Section 4: Inmueble --}}
+    {{-- Section 4: Inmuebles --}}
     <div class="card mb-6">
         <div class="card-header">
             <h3 class="text-sm font-heading font-semibold text-navy-800">
-                <i class="fas fa-building mr-2 text-burgundy-800"></i>Informacion del Inmueble
+                <i class="fas fa-building mr-2 text-burgundy-800"></i>Inmuebles Afiliados
             </h3>
         </div>
         <div class="card-body">
-            @if($afiliacion && $afiliacion->afilapto && !$afiliacion->afilapto->apartamento_id)
+
+            {{-- Lista de afilaptos actuales (solo en edicion) --}}
+            @if($afiliacion && $afiliacion->afilaptos->isNotEmpty())
+            <div class="mb-4">
+                <p class="text-xs font-semibold text-navy-800 mb-2">Inmuebles actualmente vinculados:</p>
+                <div class="flex flex-col gap-2">
+                    @foreach($afiliacion->afilaptos as $afilapto)
+                    <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                        <span>
+                            <span class="font-semibold text-navy-800">{{ $afilapto->edificio->nombre ?? '—' }}</span>
+                            <span class="text-slate_custom-400 ml-2">Apto {{ $afilapto->apartamento->num_apto ?? '—' }}</span>
+                            @if($afilapto->cod_pint)
+                                <span class="ml-2 font-mono text-xs text-slate_custom-400">(PINT: {{ $afilapto->cod_pint }})</span>
+                            @endif
+                        </span>
+                        <span class="text-xs {{ $afilapto->estatus_afil === 'A' ? 'badge-success' : 'badge-warning' }}">
+                            {{ $afilapto->estatus_afil === 'A' ? 'Activo' : $afilapto->estatus_afil }}
+                        </span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @elseif($afiliacion)
             <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800 mb-3 flex items-center gap-2">
                 <i class="fas fa-exclamation-triangle"></i>
-                Este registro no tiene inmueble vinculado. Puede asignarlo seleccionando uno abajo, o dejarlo en blanco para no modificarlo.
+                Esta afiliacion no tiene inmuebles vinculados aun.
             </div>
             @endif
+
+            {{-- Selector para agregar inmueble --}}
             <div>
                 <label class="block text-sm font-semibold text-navy-800 mb-1">
-                    Inmueble (Edificio / Apto)
+                    {{ $afiliacion ? 'Agregar inmueble (opcional)' : 'Inmueble' }}
                     @if(!$afiliacion) <span class="text-red-500">*</span> @endif
                 </label>
                 <select name="apartamento_id" {{ !$afiliacion ? 'required' : '' }}
                     class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-burgundy-800">
-                    <option value="">-- {{ $afiliacion ? 'Sin cambio / Sin inmueble' : 'Seleccione un inmueble' }} --</option>
+                    <option value="">-- {{ $afiliacion ? 'Seleccione para agregar un inmueble adicional' : 'Seleccione un inmueble' }} --</option>
                     @foreach($apartamentos as $apto)
-                    <option value="{{ $apto->id }}"
-                        {{ old('apartamento_id', $afiliacion->afilapto->apartamento_id ?? '') == $apto->id ? 'selected' : '' }}>
+                    <option value="{{ $apto->id }}" {{ old('apartamento_id') == $apto->id ? 'selected' : '' }}>
                         {{ $apto->edificio->nombre ?? 'Edificio' }} — Apto {{ $apto->num_apto }}
                     </option>
                     @endforeach
                 </select>
-                @if($afiliacion && $afiliacion->afilapto?->apartamento_id)
+                @if($afiliacion)
                 <p class="text-xs text-slate_custom-400 mt-1">
                     <i class="fas fa-info-circle mr-1"></i>
-                    Actual: {{ $afiliacion->afilapto->edificio->nombre ?? '' }} — Apto {{ $afiliacion->afilapto->apartamento->num_apto ?? '' }}
+                    Seleccionar un inmueble agrega un nuevo afilapto a esta afiliacion. Los inmuebles ya vinculados se mantienen.
                 </p>
                 @endif
             </div>
+
         </div>
     </div>
 

@@ -63,19 +63,71 @@
 
         <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2">
             <i class="fas fa-check-circle"></i>
-            Importacion completada. {{ $results['imported'] }} nuevos, {{ $results['updated'] }} actualizados, {{ $results['skipped'] }} omitidos.
+            Importacion completada. {{ $results['imported'] }} nuevos, {{ $results['updated'] }} actualizados, {{ $results['skipped'] }} omitidos por duplicado.
         </div>
 
+        {{-- Omitidos del preview (sin cedula válida u otro motivo) --}}
+        @if(!empty($omitidos) && count($omitidos) > 0)
+        <div class="card" x-data="{ show: true }">
+            <div class="card-header cursor-pointer bg-amber-50" @click="show = !show">
+                <h3 class="text-sm font-heading font-semibold text-amber-700 flex items-center justify-between w-full">
+                    <span><i class="fas fa-forward mr-2"></i>Registros NO importados — omitidos en lectura ({{ count($omitidos) }}{{ count($omitidos) >= 500 ? '+' : '' }})</span>
+                    <i class="fas" :class="show ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                </h3>
+            </div>
+            <div x-show="show" x-transition>
+                {{-- Resumen por razón --}}
+                @if(!empty($omitidosPorRazon))
+                <div class="px-5 py-3 bg-amber-50 border-b border-amber-200">
+                    <p class="text-xs font-semibold text-amber-800 mb-2">Motivos:</p>
+                    <div class="flex flex-wrap gap-3">
+                        @foreach($omitidosPorRazon as $razon => $cantidad)
+                        <span class="text-xs bg-amber-100 text-amber-800 border border-amber-300 rounded-full px-3 py-1">
+                            {{ $razon }}: <strong>{{ number_format($cantidad) }}</strong>
+                        </span>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+                <div class="card-body p-0">
+                    <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>Linea</th>
+                                    <th>Cedula</th>
+                                    <th>Nombres</th>
+                                    <th>Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($omitidos as $om)
+                                <tr class="bg-amber-50">
+                                    <td class="text-xs">{{ $om['line'] }}</td>
+                                    <td class="text-xs font-mono font-semibold">{{ $om['cedula'] ?? '--' }}</td>
+                                    <td class="text-xs">{{ \Illuminate\Support\Str::limit($om['nombres'] ?? '', 30) }}</td>
+                                    <td class="text-xs text-amber-700 font-medium">{{ $om['reason'] }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- Errores de inserción --}}
         @if(count($results['errors']) > 0)
-        <div class="card" x-data="{ showErrors: false }">
-            <div class="card-header cursor-pointer" @click="showErrors = !showErrors">
+        <div class="card" x-data="{ showErrors: true }">
+            <div class="card-header cursor-pointer bg-red-50" @click="showErrors = !showErrors">
                 <h3 class="text-sm font-heading font-semibold text-red-600 flex items-center justify-between w-full">
-                    <span><i class="fas fa-exclamation-triangle mr-2"></i>Detalle de Errores ({{ count($results['errors']) }})</span>
+                    <span><i class="fas fa-exclamation-triangle mr-2"></i>Errores de insercion ({{ count($results['errors']) }})</span>
                     <i class="fas" :class="showErrors ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                 </h3>
             </div>
             <div class="card-body p-0" x-show="showErrors" x-transition>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-96 overflow-y-auto">
                     <table class="table-custom">
                         <thead>
                             <tr>
@@ -88,7 +140,7 @@
                             @foreach($results['errors'] as $err)
                             <tr>
                                 <td>{{ $err['line'] }}</td>
-                                <td class="font-medium">{{ $err['ref'] ?: '--' }}</td>
+                                <td class="font-mono font-medium">{{ $err['ref'] ?: '--' }}</td>
                                 <td class="text-red-600 text-xs">{{ $err['reason'] }}</td>
                             </tr>
                             @endforeach
@@ -169,12 +221,11 @@
             <div class="card-body p-0" x-show="show" x-transition>
                 <div class="overflow-x-auto max-h-80 overflow-y-auto">
                     <table class="table-custom">
-                        <thead><tr><th>Linea</th><th>Afil ID</th><th>Cédula</th><th>Nombres</th><th>Motivo</th></tr></thead>
+                        <thead><tr><th>Linea</th><th>Cédula</th><th>Nombres</th><th>Motivo</th></tr></thead>
                         <tbody>
                             @foreach($omitidos as $om)
                             <tr class="bg-amber-50">
                                 <td class="text-xs">{{ $om['line'] }}</td>
-                                <td class="text-xs font-medium">{{ $om['afilapto_id'] }}</td>
                                 <td class="text-xs">{{ $om['cedula'] }}</td>
                                 <td class="text-xs">{{ \Illuminate\Support\Str::limit($om['nombres'] ?? '', 25) }}</td>
                                 <td class="text-xs text-amber-700 font-medium">{{ $om['reason'] }}</td>
@@ -200,7 +251,6 @@
                             <tr>
                                 <th>Linea</th>
                                 <th>Estado</th>
-                                <th>Afil ID</th>
                                 <th>Cedula</th>
                                 <th>Nombres</th>
                                 <th>Apellidos</th>
@@ -221,7 +271,6 @@
                                         <span class="badge-danger text-xs" title="{{ implode(', ', $row['errors']) }}">Error</span>
                                     @endif
                                 </td>
-                                <td class="text-xs">{{ $row['display']['afilapto_id'] ?? '--' }}</td>
                                 <td class="font-medium text-sm">{{ $row['display']['cedula'] ?? '--' }}</td>
                                 <td class="text-xs">{{ \Illuminate\Support\Str::limit($row['display']['nombres'] ?? '', 20) }}</td>
                                 <td class="text-xs">{{ \Illuminate\Support\Str::limit($row['display']['apellidos'] ?? '', 20) }}</td>
@@ -296,8 +345,8 @@
             <div>
                 <p class="font-semibold">No hay filas validas para importar.</p>
                 <ul class="mt-2 text-sm list-disc list-inside space-y-1">
-                    <li>Revise que el archivo tenga al menos 28 columnas por fila</li>
-                    <li>Verifique que el campo <strong>afilapto_id</strong> (columna 1) sea numerico</li>
+                    <li>Revise que el archivo tenga al menos 27 columnas por fila</li>
+                    <li>Verifique que la columna <strong>cedula_rif</strong> (columna 3) no este vacia</li>
                     <li>Asegurese de que el formato sea CSV con comillas dobles</li>
                 </ul>
             </div>
@@ -314,9 +363,9 @@
         {{-- Info about order --}}
         <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl flex items-center gap-2">
             <i class="fas fa-info-circle"></i>
-            <span>Este archivo se importa <strong>antes</strong> de afilapto.csv. Despues de importar este archivo, importe
+            <span>Importe primero este archivo (afiliaciones/personas). Luego importe
                 <a href="{{ route('condominio.afiliaciones-apto.importar') }}" class="underline font-semibold">afilapto.csv</a>
-                para completar la relacion.
+                para vincular los apartamentos a cada afiliacion.
             </span>
         </div>
 
@@ -355,27 +404,27 @@
                         <i class="fas fa-info-circle mr-2 text-blue-500"></i>Formato esperado del archivo
                     </h5>
                     <div class="bg-slate_custom-50 rounded-xl p-4 overflow-x-auto">
-                        <p class="text-xs text-slate_custom-500 mb-2">Columnas principales (37 campos CSV):</p>
-                        <code class="text-xs text-navy-800 break-all">afilapto_id, fecha, letra, cedula_rif, nombres, apellidos, email, email_alterno, calle_avenida, piso_apto, edif_casa, urbanizacion, ciudad, estado_id, telefono, fax, celular, otro, banco_id, cta_bancaria, tipo_cta, nom_usuario, clave, creado_por, cod_sucursal, estatus, fecha_estatus, observaciones, ...</code>
+                        <p class="text-xs text-slate_custom-500 mb-2">Columnas (27 campos CSV sin afilapto_id):</p>
+                        <code class="text-xs text-navy-800 break-all">fecha, letra, cedula_rif, nombres, apellidos, email, email_alterno, calle_avenida, piso_apto, edif_casa, urbanizacion, ciudad, estado_id, telefono, fax, celular, otro, banco_id, cta_bancaria, tipo_cta, nom_usuario, clave, creado_por, cod_sucursal, estatus, fecha_estatus, observaciones</code>
                         <p class="text-xs text-slate_custom-500 mt-3 mb-2">Ejemplo:</p>
-                        <code class="text-xs text-navy-800 break-all">"1","2020-02-27","V","11899943","JOSE","PEREZ","email@test.com",NULL,...</code>
+                        <code class="text-xs text-navy-800 break-all">"2020-02-27","V","11899943","JOSE","PEREZ","email@test.com",NULL,...</code>
                     </div>
                     <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="flex items-start gap-2 text-xs text-slate_custom-500">
                             <i class="fas fa-check-circle text-green-500 mt-0.5"></i>
-                            <span><strong>afilapto_id</strong> debe existir en la tabla afilapto</span>
-                        </div>
-                        <div class="flex items-start gap-2 text-xs text-slate_custom-500">
-                            <i class="fas fa-check-circle text-green-500 mt-0.5"></i>
-                            <span>Duplicados se detectan por <strong>afilapto_id</strong></span>
+                            <span>Duplicados se detectan por <strong>cedula_rif</strong></span>
                         </div>
                         <div class="flex items-start gap-2 text-xs text-slate_custom-500">
                             <i class="fas fa-check-circle text-green-500 mt-0.5"></i>
                             <span>Valores <strong>NULL</strong> se interpretan como campos vacios</span>
                         </div>
                         <div class="flex items-start gap-2 text-xs text-slate_custom-500">
+                            <i class="fas fa-info-circle text-blue-500 mt-0.5"></i>
+                            <span>Los apartamentos se vinculan luego importando <strong>afilapto.csv</strong></span>
+                        </div>
+                        <div class="flex items-start gap-2 text-xs text-slate_custom-500">
                             <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5"></i>
-                            <span>Importe <strong>afilapto primero</strong></span>
+                            <span>Importe <strong>este archivo primero</strong>, luego afilapto</span>
                         </div>
                     </div>
                 </div>

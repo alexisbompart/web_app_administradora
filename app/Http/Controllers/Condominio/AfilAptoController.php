@@ -111,7 +111,6 @@ class AfilAptoController extends Controller
 
     public function destroy(Afilapto $afilapto)
     {
-        $afilapto->afilpagointegral()->delete();
         $afilapto->delete();
 
         return redirect()->route('condominio.afiliaciones-apto.index')

@@ -484,12 +484,14 @@ class MiCondominioController extends Controller
         // 1) Search by apartment chain: apartamento → afilapto → afilpagointegral
         $afiliado = null;
         if ($apartamentoIds->isNotEmpty()) {
-            $afilAptoIds = Afilapto::whereIn('apartamento_id', $apartamentoIds)
-                ->where('estatus_afil', 'A')->pluck('id');
+            $afilpagointegralIds = Afilapto::whereIn('apartamento_id', $apartamentoIds)
+                ->where('estatus_afil', 'A')
+                ->whereNotNull('afilpagointegral_id')
+                ->pluck('afilpagointegral_id');
 
-            $afiliado = Afilpagointegral::whereIn('afilapto_id', $afilAptoIds)
+            $afiliado = Afilpagointegral::whereIn('id', $afilpagointegralIds)
                 ->where('estatus', 'A')
-                ->with('afilapto.apartamento.edificio')
+                ->with('afilaptos.apartamento.edificio')
                 ->first();
         }
 
@@ -502,13 +504,14 @@ class MiCondominioController extends Controller
                       ->orWhere('cedula_rif', 'LIKE', "%-{$cedulaLimpia}")
                       ->orWhere(DB::raw("REPLACE(REPLACE(cedula_rif, '.', ''), '-', '')"), $cedulaLimpia);
                 })
-                ->with('afilapto.apartamento.edificio')
+                ->with('afilaptos.apartamento.edificio')
                 ->first();
         }
 
         $deudas = collect();
-        if ($afiliado && $afiliado->afilapto) {
-            $deudas = CondDeudaApto::where('apartamento_id', $afiliado->afilapto->apartamento_id)
+        if ($afiliado && $afiliado->afilaptos->isNotEmpty()) {
+            $primerApto = $afiliado->afilaptos->first();
+            $deudas = CondDeudaApto::where('apartamento_id', $primerApto->apartamento_id)
                 ->pendientes()
                 ->orderBy('periodo')
                 ->get();
@@ -544,16 +547,17 @@ class MiCondominioController extends Controller
         $apartamentoIds = $apartamentos->pluck('id');
 
         // Verify the afiliado belongs to this propietario
-        $afiliado = Afilpagointegral::with('afilapto.apartamento')
+        $afiliado = Afilpagointegral::with('afilaptos.apartamento')
             ->where('id', $request->afiliado_id)
             ->where('estatus', 'A')
             ->firstOrFail();
 
-        if (!$afiliado->afilapto || !$apartamentoIds->contains($afiliado->afilapto->apartamento_id)) {
+        $primerApto = $afiliado->afilaptos->first();
+        if (!$primerApto || !$apartamentoIds->contains($primerApto->apartamento_id)) {
             return back()->with('error', 'El afiliado no corresponde a sus apartamentos.');
         }
 
-        $apartamentoId = $afiliado->afilapto->apartamento_id;
+        $apartamentoId = $primerApto->apartamento_id;
 
         // Get all pending debts for validation
         $allDeudas = CondDeudaApto::where('apartamento_id', $apartamentoId)
@@ -588,7 +592,7 @@ class MiCondominioController extends Controller
         $pago = DB::transaction(function () use ($afiliado, $deudas, $total) {
             $pago = PagoIntegral::create([
                 'afilpagointegral_id' => $afiliado->id,
-                'compania_id'         => $afiliado->afilapto->compania_id ?? null,
+                'compania_id'         => $afiliado->afilaptos->first()?->compania_id ?? null,
                 'fecha'               => now(),
                 'monto_total'         => $total,
                 'forma_pago'          => 'pago_integral',

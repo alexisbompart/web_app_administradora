@@ -3,11 +3,9 @@
 namespace App\Http\Controllers\Condominio;
 
 use App\Http\Controllers\Controller;
-use App\Models\Condominio\Afilapto;
 use App\Models\Condominio\Afilpagointegral;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class AfilPagointegralImportController extends Controller
 {
@@ -22,37 +20,14 @@ class AfilPagointegralImportController extends Controller
             'archivo' => 'required|file|max:51200',
         ]);
 
-        $file = $request->file('archivo');
-        $content = file_get_contents($file->getRealPath());
-        $content = mb_convert_encoding($content, 'UTF-8', 'UTF-8');
-        $lines = explode("\n", $content);
+        $file    = $request->file('archivo');
+        $content = mb_convert_encoding(file_get_contents($file->getRealPath()), 'UTF-8', 'UTF-8');
+        $lines   = explode("\n", $content);
 
-        // Pre-load lookups
-        $existingPago = Afilpagointegral::pluck('id', 'afilapto_id')->toArray();
+        // Pre-cargar cédulas existentes para detección de duplicados
+        $existingCedulas = Afilpagointegral::pluck('id', 'cedula_rif')->toArray();
 
-        // Cargar afilaptos que tienen edificio Y apartamento vinculados
-        $afilaptoValidos = DB::table('afilapto')
-            ->whereNotNull('edificio_id')
-            ->whereNotNull('apartamento_id')
-            ->pluck('id')
-            ->flip()
-            ->toArray();
-
-        // Cargar afilaptos sin edificio o sin apartamento para dar razón exacta
-        $afilaptoSinEdif = DB::table('afilapto')
-            ->whereNull('edificio_id')
-            ->pluck('id')
-            ->flip()
-            ->toArray();
-
-        $afilaptoSinApto = DB::table('afilapto')
-            ->whereNotNull('edificio_id')
-            ->whereNull('apartamento_id')
-            ->pluck('id')
-            ->flip()
-            ->toArray();
-
-        $rows    = [];
+        $rows     = [];
         $omitidos = [];
 
         foreach ($lines as $index => $line) {
@@ -60,72 +35,63 @@ class AfilPagointegralImportController extends Controller
             if ($line === '') continue;
 
             $fields = str_getcsv($line, ',', '"');
-            if (count($fields) < 28) continue;
+            if (count($fields) < 27) continue; // 27 sin afilapto_id, 28 con él
 
             $lineNumber = $index + 1;
-            $errors = [];
 
-            $afilAptoId   = $this->clean($fields[0] ?? null);
-            $fecha        = $this->clean($fields[1] ?? null);
-            $letra        = $this->clean($fields[2] ?? null);
-            $cedulaRif    = $this->clean($fields[3] ?? null);
-            $nombres      = $this->clean($fields[4] ?? null);
-            $apellidos    = $this->clean($fields[5] ?? null);
-            $email        = $this->clean($fields[6] ?? null);
-            $emailAlt     = $this->clean($fields[7] ?? null);
-            $calleAv      = $this->clean($fields[8] ?? null);
-            $pisoApto     = $this->clean($fields[9] ?? null);
-            $edifCasa     = $this->clean($fields[10] ?? null);
-            $urbanizacion = $this->clean($fields[11] ?? null);
-            $ciudad       = $this->clean($fields[12] ?? null);
-            $estadoId     = $this->clean($fields[13] ?? null);
-            $telefono     = $this->clean($fields[14] ?? null);
-            $fax          = $this->clean($fields[15] ?? null);
-            $celular      = $this->clean($fields[16] ?? null);
-            $otro         = $this->clean($fields[17] ?? null);
-            $bancoId      = $this->clean($fields[18] ?? null);
-            $ctaBancaria  = $this->clean($fields[19] ?? null);
-            $tipoCta      = $this->clean($fields[20] ?? null);
-            $nomUsuario   = $this->clean($fields[21] ?? null);
-            $clave        = $this->clean($fields[22] ?? null);
-            $creadoPor    = $this->clean($fields[23] ?? null);
-            $codSucursal  = $this->clean($fields[24] ?? null);
-            $estatus      = $this->clean($fields[25] ?? null);
-            $fechaEstatus = $this->clean($fields[26] ?? null);
-            $observaciones = $this->clean($fields[27] ?? null);
+            // Auto-detectar si la columna 0 es el afilapto_id legacy (numérico)
+            $col0 = trim($fields[0] ?? '');
+            $hasLegacyId = (is_numeric($col0) && strlen($col0) < 10);
+            $offset = $hasLegacyId ? 1 : 0;
+            $legacyAfilAptoId = $hasLegacyId ? (int) $col0 : null;
 
-            // Validar afilapto_id
-            if (!$afilAptoId || !is_numeric($afilAptoId)) {
+            $fecha         = $this->clean($fields[$offset + 0]  ?? null);
+            $letra         = $this->clean($fields[$offset + 1]  ?? null);
+            $cedulaRif     = $this->clean($fields[$offset + 2]  ?? null);
+            $nombres       = $this->clean($fields[$offset + 3]  ?? null);
+            $apellidos     = $this->clean($fields[$offset + 4]  ?? null);
+            $email         = $this->clean($fields[$offset + 5]  ?? null);
+            $emailAlt      = $this->clean($fields[$offset + 6]  ?? null);
+            $calleAv       = $this->clean($fields[$offset + 7]  ?? null);
+            $pisoApto      = $this->clean($fields[$offset + 8]  ?? null);
+            $edifCasa      = $this->clean($fields[$offset + 9]  ?? null);
+            $urbanizacion  = $this->clean($fields[$offset + 10] ?? null);
+            $ciudad        = $this->clean($fields[$offset + 11] ?? null);
+            $estadoId      = $this->clean($fields[$offset + 12] ?? null);
+            $telefono      = $this->clean($fields[$offset + 13] ?? null);
+            $fax           = $this->clean($fields[$offset + 14] ?? null);
+            $celular       = $this->clean($fields[$offset + 15] ?? null);
+            $otro          = $this->clean($fields[$offset + 16] ?? null);
+            $bancoId       = $this->clean($fields[$offset + 17] ?? null);
+            $ctaBancaria   = $this->clean($fields[$offset + 18] ?? null);
+            $tipoCta       = $this->clean($fields[$offset + 19] ?? null);
+            $nomUsuario    = $this->clean($fields[$offset + 20] ?? null);
+            $clave         = $this->clean($fields[$offset + 21] ?? null);
+            $creadoPor     = $this->clean($fields[$offset + 22] ?? null);
+            $codSucursal   = $this->clean($fields[$offset + 23] ?? null);
+            $estatus       = $this->clean($fields[$offset + 24] ?? null);
+            $fechaEstatus  = $this->clean($fields[$offset + 25] ?? null);
+            $observaciones = $this->clean($fields[$offset + 26] ?? null);
+
+            if (!$cedulaRif) {
                 if (count($omitidos) < 500) {
-                    $omitidos[] = ['line' => $lineNumber, 'afilapto_id' => $afilAptoId ?? '--', 'cedula' => ($letra ?? '') . '-' . ($cedulaRif ?? ''), 'nombres' => $nombres, 'reason' => 'afilapto_id vacío o inválido'];
+                    $omitidos[] = [
+                        'line'    => $lineNumber,
+                        'cedula'  => '--',
+                        'nombres' => $nombres,
+                        'reason'  => 'cedula_rif vacía',
+                    ];
                 }
                 continue;
             }
 
-            $afilId = (int) $afilAptoId;
-
-            // Validar que el afilapto tenga edificio y apartamento vinculados
-            if (!isset($afilaptoValidos[$afilId])) {
-                if (isset($afilaptoSinEdif[$afilId])) {
-                    $reason = "Afilapto ID {$afilId} no tiene edificio vinculado";
-                } elseif (isset($afilaptoSinApto[$afilId])) {
-                    $reason = "Afilapto ID {$afilId} no tiene apartamento vinculado";
-                } else {
-                    $reason = "Afilapto ID {$afilId} no existe en BD";
-                }
-                if (count($omitidos) < 500) {
-                    $omitidos[] = ['line' => $lineNumber, 'afilapto_id' => $afilId, 'cedula' => ($letra ?? '') . '-' . ($cedulaRif ?? ''), 'nombres' => $nombres, 'reason' => $reason];
-                }
-                continue;
-            }
-
-            // Parse dates
             $fechaParsed        = $this->parseDate($fecha);
             $fechaEstatusParsed = $this->parseDate($fechaEstatus);
 
             if ($estadoId === '0') $estadoId = null;
             if ($estadoId) $estadoId = (int) $estadoId;
 
+            // Inferir banco desde prefijo de cuenta
             if ($ctaBancaria) {
                 $prefijoBanco = ['0105' => 3, '0114' => 5, '0134' => 8];
                 $prefijo = substr($ctaBancaria, 0, 4);
@@ -138,17 +104,16 @@ class AfilPagointegralImportController extends Controller
                 $bancoId = (int) $bancoId;
             }
 
-            // Duplicate detection
-            if (isset($existingPago[$afilId])) {
+            // Detección de duplicados por cedula_rif
+            if (isset($existingCedulas[$cedulaRif])) {
                 $status     = 'update';
-                $existingId = $existingPago[$afilId];
+                $existingId = $existingCedulas[$cedulaRif];
             } else {
                 $status     = 'new';
                 $existingId = null;
             }
 
             $mapped = [
-                'afilapto_id'   => $afilId,
                 'fecha'         => $fechaParsed,
                 'letra'         => $letra,
                 'cedula_rif'    => $cedulaRif,
@@ -179,17 +144,17 @@ class AfilPagointegralImportController extends Controller
             ];
 
             $rows[] = [
-                'line'        => $lineNumber,
-                'status'      => $status,
-                'errors'      => $errors,
-                'existing_id' => $existingId,
-                'display'     => [
-                    'afilapto_id' => $afilId,
-                    'cedula'      => ($letra ?? '') . '-' . ($cedulaRif ?? ''),
-                    'nombres'     => $nombres,
-                    'apellidos'   => $apellidos,
-                    'email'       => $email,
-                    'estatus'     => $estatus,
+                'line'                => $lineNumber,
+                'status'              => $status,
+                'errors'              => [],
+                'existing_id'         => $existingId,
+                'legacy_afilapto_id'  => $legacyAfilAptoId,
+                'display'             => [
+                    'cedula'    => ($letra ?? '') . '-' . $cedulaRif,
+                    'nombres'   => $nombres,
+                    'apellidos' => $apellidos,
+                    'email'     => $email,
+                    'estatus'   => $estatus,
                 ],
                 'data' => $mapped,
             ];
@@ -197,6 +162,10 @@ class AfilPagointegralImportController extends Controller
 
         $tempPath = storage_path('app/import_afilpago_' . auth()->id() . '.json');
         file_put_contents($tempPath, json_encode($rows));
+
+        // Guardar omitidos para mostrarlos tras el execute
+        $omitidosPath = storage_path('app/import_afilpago_omitidos_' . auth()->id() . '.json');
+        file_put_contents($omitidosPath, json_encode($omitidos));
 
         $omitidosPorRazon = collect($omitidos)
             ->groupBy('reason')
@@ -237,6 +206,9 @@ class AfilPagointegralImportController extends Controller
         $duplicateAction = $request->input('duplicate_action');
         $results = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'errors' => []];
 
+        // Mapa legacy_afilapto_id → afilpagointegral_id para vincular al importar afilapto
+        $legacyMap = [];
+
         foreach ($rows as $row) {
             if ($row['status'] === 'error') {
                 $results['errors'][] = [
@@ -248,20 +220,24 @@ class AfilPagointegralImportController extends Controller
             }
 
             $data = array_filter($row['data'], fn($v) => $v !== null);
+            $legacyAfilAptoId = $row['legacy_afilapto_id'] ?? null;
 
             try {
-                $existing = Afilpagointegral::where('afilapto_id', $data['afilapto_id'] ?? 0)->first();
+                $existing = Afilpagointegral::where('cedula_rif', $data['cedula_rif'] ?? '')->first();
 
                 if ($existing) {
                     if ($duplicateAction === 'update') {
                         $existing->update($data);
                         $results['updated']++;
+                        if ($legacyAfilAptoId) $legacyMap[$legacyAfilAptoId] = $existing->id;
                     } else {
                         $results['skipped']++;
+                        if ($legacyAfilAptoId) $legacyMap[$legacyAfilAptoId] = $existing->id;
                     }
                 } else {
-                    Afilpagointegral::create($data);
+                    $nuevo = Afilpagointegral::create($data);
                     $results['imported']++;
+                    if ($legacyAfilAptoId) $legacyMap[$legacyAfilAptoId] = $nuevo->id;
                 }
             } catch (\Exception $e) {
                 $results['errors'][] = [
@@ -272,8 +248,27 @@ class AfilPagointegralImportController extends Controller
             }
         }
 
+        // Persistir el mapa para que el import de afilapto lo use
+        $mapPath = storage_path('app/import_afilapto_legacy_map.json');
+        file_put_contents($mapPath, json_encode($legacyMap));
+
         @unlink($tempPath);
-        return view('condominio.afilpagointegral-importar', ['results' => $results]);
+
+        // Recuperar omitidos del preview
+        $omitidosPath = storage_path('app/import_afilpago_omitidos_' . auth()->id() . '.json');
+        $omitidos = [];
+        if (file_exists($omitidosPath)) {
+            $omitidos = json_decode(file_get_contents($omitidosPath), true) ?? [];
+            @unlink($omitidosPath);
+        }
+
+        $omitidosPorRazon = collect($omitidos)
+            ->groupBy('reason')
+            ->map(fn($g) => $g->count())
+            ->sortDesc()
+            ->toArray();
+
+        return view('condominio.afilpagointegral-importar', compact('results', 'omitidos', 'omitidosPorRazon'));
     }
 
     private function clean(?string $value): ?string

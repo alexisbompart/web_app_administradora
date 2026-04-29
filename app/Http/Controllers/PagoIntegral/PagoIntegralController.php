@@ -23,7 +23,7 @@ class PagoIntegralController extends Controller
     public function index()
     {
         $pendientes = PagoIntegral::where('estatus', 'P')
-            ->with(['afilpagointegral.banco', 'afilpagointegral.afilapto.apartamento.edificio', 'compania', 'pagoIntegralDetalles'])
+            ->with(['afilpagointegral.banco', 'afilpagointegral.afilaptos.apartamento.edificio', 'compania', 'pagoIntegralDetalles'])
             ->latest('fecha')->get();
 
         // Agrupar pendientes por banco
@@ -31,7 +31,7 @@ class PagoIntegralController extends Controller
         $bancosPendientes = Banco::whereIn('id', $pendientesPorBanco->keys()->filter())->orderBy('nombre')->get()->keyBy('id');
 
         $procesados = PagoIntegral::whereIn('estatus', ['A', 'R'])
-            ->with(['afilpagointegral.banco', 'afilpagointegral.afilapto.apartamento.edificio', 'compania', 'pagoIntegralDetalles'])
+            ->with(['afilpagointegral.banco', 'afilpagointegral.afilaptos.apartamento.edificio', 'compania', 'pagoIntegralDetalles'])
             ->latest('fecha')->paginate(15);
 
         $totalPendiente = PagoIntegral::where('estatus', 'P')->sum('monto_total');
@@ -58,31 +58,36 @@ class PagoIntegralController extends Controller
             if ($propietario) {
                 $apartamentoIds = $propietario->apartamentos()
                     ->wherePivot('propietario_actual', true)->pluck('cond_aptos.id');
-                $afilAptoIds = Afilapto::whereIn('apartamento_id', $apartamentoIds)
-                    ->where('estatus_afil', 'A')->pluck('id');
-                $afiliados = Afilpagointegral::whereIn('afilapto_id', $afilAptoIds)
+                $afilpagointegralIds = Afilapto::whereIn('apartamento_id', $apartamentoIds)
+                    ->where('estatus_afil', 'A')
+                    ->whereNotNull('afilpagointegral_id')
+                    ->pluck('afilpagointegral_id');
+                $afiliados = Afilpagointegral::whereIn('id', $afilpagointegralIds)
                     ->where('estatus', 'A')
-                    ->with('afilapto.apartamento.edificio')
+                    ->with('afilaptos.apartamento.edificio')
                     ->get();
             }
         } else {
             $afiliados = Afilpagointegral::where('estatus', 'A')
-                ->with('afilapto.apartamento.edificio')
+                ->with('afilaptos.apartamento.edificio')
                 ->orderBy('nombres')->get();
         }
 
         if ($request->filled('afiliado_id')) {
-            $afiliado = Afilpagointegral::with('afilapto.apartamento.edificio')->find($request->afiliado_id);
-            if ($afiliado && $afiliado->afilapto) {
-                $deudas = CondDeudaApto::where('apartamento_id', $afiliado->afilapto->apartamento_id)
-                    ->where(function ($q) {
-                        $q->whereNull('fecha_pag')->orWhere('fecha_pag', '0001-01-01');
-                    })
-                    ->where(function ($q) {
-                        $q->whereNull('serial')->orWhere('serial', 'N');
-                    })
-                    ->orderBy('periodo')
-                    ->get();
+            $afiliado = Afilpagointegral::with('afilaptos.apartamento.edificio')->find($request->afiliado_id);
+            if ($afiliado) {
+                $primerApto = $afiliado->afilaptos->first();
+                if ($primerApto) {
+                    $deudas = CondDeudaApto::where('apartamento_id', $primerApto->apartamento_id)
+                        ->where(function ($q) {
+                            $q->whereNull('fecha_pag')->orWhere('fecha_pag', '0001-01-01');
+                        })
+                        ->where(function ($q) {
+                            $q->whereNull('serial')->orWhere('serial', 'N');
+                        })
+                        ->orderBy('periodo')
+                        ->get();
+                }
             }
         }
 
@@ -98,9 +103,10 @@ class PagoIntegralController extends Controller
                 'deudas.*' => 'exists:cond_deudas_apto,id',
             ]);
 
-            $afiliado = Afilpagointegral::with('afilapto.apartamento.edificio')->findOrFail($request->afiliado_id);
+            $afiliado = Afilpagointegral::with('afilaptos.apartamento.edificio')->findOrFail($request->afiliado_id);
+            $primerApto = $afiliado->afilaptos->first();
 
-            $allDeudas = CondDeudaApto::where('apartamento_id', $afiliado->afilapto->apartamento_id)
+            $allDeudas = CondDeudaApto::where('apartamento_id', $primerApto?->apartamento_id)
                 ->where(function ($q) { $q->whereNull('fecha_pag')->orWhere('fecha_pag', '0001-01-01'); })
                 ->where(function ($q) { $q->whereNull('serial')->orWhere('serial', 'N'); })
                 ->orderBy('periodo')->get();
@@ -136,7 +142,7 @@ class PagoIntegralController extends Controller
             'referencia' => 'required|string|max:100',
         ]);
 
-        $afiliado = Afilpagointegral::with('afilapto.apartamento.edificio')->findOrFail($request->afiliado_id);
+        $afiliado = Afilpagointegral::with('afilaptos.apartamento.edificio')->findOrFail($request->afiliado_id);
         $deudas = CondDeudaApto::whereIn('id', $request->deudas)->orderBy('periodo')->get();
 
         if ($deudas->isEmpty()) {
@@ -148,7 +154,7 @@ class PagoIntegralController extends Controller
         $pago = DB::transaction(function () use ($request, $afiliado, $deudas, $total) {
             $pago = PagoIntegral::create([
                 'afilpagointegral_id' => $afiliado->id,
-                'compania_id' => $afiliado->afilapto->compania_id ?? null,
+                'compania_id' => $afiliado->afilaptos->first()?->compania_id ?? null,
                 'fecha' => now(),
                 'monto_total' => $total,
                 'forma_pago' => $request->forma_pago,
@@ -175,7 +181,7 @@ class PagoIntegralController extends Controller
 
     public function comprobante(PagoIntegral $pago)
     {
-        $pago->load(['pagoIntegralDetalles', 'compania', 'afilpagointegral.afilapto.apartamento.edificio']);
+        $pago->load(['pagoIntegralDetalles', 'compania', 'afilpagointegral.afilaptos.apartamento.edificio']);
         return view('financiero.pago-integral-comprobante', compact('pago'));
     }
 
@@ -193,8 +199,8 @@ class PagoIntegralController extends Controller
             ]);
 
             // Mark related debts as cancelled using the detalles periods
-            if ($pago->afilpagointegral && $pago->afilpagointegral->afilapto) {
-                $apartamentoId = $pago->afilpagointegral->afilapto->apartamento_id;
+            if ($pago->afilpagointegral && $pago->afilpagointegral->afilaptos->isNotEmpty()) {
+                $apartamentoId = $pago->afilpagointegral->afilaptos->first()->apartamento_id;
                 $periodos = $pago->pagoIntegralDetalles->pluck('periodo')->toArray();
 
                 CondDeudaApto::where('apartamento_id', $apartamentoId)
@@ -235,9 +241,9 @@ class PagoIntegralController extends Controller
     {
         $query = PagoIntegral::with([
             'afilpagointegral.banco',
-            'afilpagointegral.afilapto.apartamento',
-            'afilpagointegral.afilapto.edificio',
-            'afilpagointegral.afilapto.compania',
+            'afilpagointegral.afilaptos.apartamento',
+            'afilpagointegral.afilaptos.edificio',
+            'afilpagointegral.afilaptos.compania',
         ]);
 
         if ($request->filled('cedula')) {
@@ -273,9 +279,9 @@ class PagoIntegralController extends Controller
             ->whereHas('afilpagointegral', fn($q) => $q->where('banco_id', $request->banco_id))
             ->with([
                 'afilpagointegral.banco',
-                'afilpagointegral.afilapto.apartamento',
-                'afilpagointegral.afilapto.edificio',
-                'afilpagointegral.afilapto.compania',
+                'afilpagointegral.afilaptos.apartamento',
+                'afilpagointegral.afilaptos.edificio',
+                'afilpagointegral.afilaptos.compania',
                 'pagoIntegralDetalles',
             ])
             ->get();
@@ -318,7 +324,7 @@ class PagoIntegralController extends Controller
     {
         $archivo->load([
             'banco', 'generadoPor',
-            'pagos.afilpagointegral.afilapto.apartamento.edificio',
+            'pagos.afilpagointegral.afilaptos.apartamento.edificio',
             'pagos.pagoIntegralDetalles',
         ]);
 
@@ -351,7 +357,7 @@ class PagoIntegralController extends Controller
                     ]);
 
                     // Cancelar deudas
-                    $apartamentoId = $pago->afilpagointegral?->afilapto?->apartamento_id;
+                    $apartamentoId = $pago->afilpagointegral?->afilaptos->first()?->apartamento_id;
                     $periodos = $pago->pagoIntegralDetalles->pluck('periodo')->toArray();
 
                     if ($apartamentoId && !empty($periodos)) {
@@ -396,7 +402,7 @@ class PagoIntegralController extends Controller
             'archivo_respuesta' => 'required|file|max:10240',
         ]);
 
-        $archivo->load(['banco', 'pagos.afilpagointegral.afilapto', 'pagos.pagoIntegralDetalles']);
+        $archivo->load(['banco', 'pagos.afilpagointegral.afilaptos', 'pagos.pagoIntegralDetalles']);
 
         $content = file_get_contents($request->file('archivo_respuesta')->getRealPath());
         $content = mb_convert_encoding($content, 'UTF-8', 'auto');
@@ -449,7 +455,7 @@ class PagoIntegralController extends Controller
                             'observaciones' => trim(($pago->observaciones ?? '') . ' | Aprobado via respuesta bancaria - ' . $mensaje . ' (' . Auth::user()->name . ' ' . now()->format('d/m/Y H:i') . ')'),
                         ]);
 
-                        $apartamentoId = $pago->afilpagointegral?->afilapto?->apartamento_id;
+                        $apartamentoId = $pago->afilpagointegral?->afilaptos->first()?->apartamento_id;
                         $periodos = $pago->pagoIntegralDetalles->pluck('periodo')->toArray();
 
                         if ($apartamentoId && !empty($periodos)) {
@@ -692,7 +698,7 @@ class PagoIntegralController extends Controller
             $cuentaCli  = str_pad($afil->cta_bancaria ?? '', 20, '0', STR_PAD_RIGHT);
             $cedPad     = str_pad($cedula, 10, '0', STR_PAD_LEFT);
             $montoCents = str_pad((int) round((float) $pago->monto_total * 100), 17, '0', STR_PAD_LEFT);
-            $numApto    = $afil->afilapto->apartamento->num_apto ?? '';
+            $numApto    = $afil->afilaptos->first()?->apartamento?->num_apto ?? '';
             $seq        = str_pad($index + 1, 3, '0', STR_PAD_LEFT);
             $ref        = str_pad('000000000456' . $seq, 15, '0', STR_PAD_LEFT);
 
@@ -858,8 +864,8 @@ class PagoIntegralController extends Controller
     {
         $query = Afilpagointegral::with([
             'banco',
-            'afilapto.apartamento',
-            'afilapto.edificio',
+            'afilaptos.apartamento',
+            'afilaptos.edificio',
         ]);
 
         if ($request->filled('cedula')) {
@@ -1032,29 +1038,27 @@ class PagoIntegralController extends Controller
         $apartamento = Apartamento::findOrFail($request->apartamento_id);
         $compania    = Compania::first();
 
-        $afilapto = Afilapto::firstOrCreate(
-            ['apartamento_id' => $apartamento->id],
-            [
-                'edificio_id'       => $apartamento->edificio_id,
-                'compania_id'       => $compania?->id,
-                'estatus_afil'      => 'A',
-                'fecha_afiliacion'  => now()->toDateString(),
-            ]
-        );
-
         $mercantilBanco = Banco::where('iniciales', 'BM')->first();
         $esMercantil = $mercantilBanco && (int) $request->banco_id === $mercantilBanco->id;
 
-        Afilpagointegral::create(array_merge(
+        $afiliacion = Afilpagointegral::create(array_merge(
             $request->except(['apartamento_id', '_token', '_method']),
             [
-                'afilapto_id'    => $afilapto->id,
                 'fecha'          => now()->toDateString(),
                 'creado_por'     => auth()->user()->name,
                 'tipo_operacion' => 'A',
-                // mercantil_estatus_proceso se setea al generar el archivo Mdomi
             ]
         ));
+
+        // Crear el afilapto vinculado a esta afiliación
+        Afilapto::create([
+            'afilpagointegral_id' => $afiliacion->id,
+            'apartamento_id'      => $apartamento->id,
+            'edificio_id'         => $apartamento->edificio_id,
+            'compania_id'         => $compania?->id,
+            'estatus_afil'        => 'A',
+            'fecha_afiliacion'    => now()->toDateString(),
+        ]);
 
         return redirect()->route('financiero.pago-integral.afiliaciones')
             ->with('success', 'Afiliacion registrada correctamente.' . ($esMercantil ? ' Recuerde generar el archivo Mdomi para enviar al Banco Mercantil.' : ''));
@@ -1062,6 +1066,7 @@ class PagoIntegralController extends Controller
 
     public function editAfiliacion(Afilpagointegral $afiliacion)
     {
+        $afiliacion->load('afilaptos.apartamento.edificio');
         $bancos       = $this->bancosAfiliacion();
         $estados      = Estado::orderBy('nombre')->get();
         $apartamentos = $this->apartamentosParaSelect();
@@ -1115,28 +1120,27 @@ class PagoIntegralController extends Controller
             'mercantil_mensaje'          => 'nullable|string|max:200',
         ]);
 
-        $extra = [];
-
-        // Solo actualizar el inmueble si se seleccionó uno
+        // Si se seleccionó un nuevo inmueble, agregar un afilapto adicional a esta afiliación
         if ($request->filled('apartamento_id')) {
             $apartamento = Apartamento::findOrFail($request->apartamento_id);
             $compania    = Compania::first();
-            $afilapto    = Afilapto::firstOrCreate(
-                ['apartamento_id' => $apartamento->id],
-                [
-                    'edificio_id'      => $apartamento->edificio_id,
-                    'compania_id'      => $compania?->id,
-                    'estatus_afil'     => 'A',
-                    'fecha_afiliacion' => now()->toDateString(),
-                ]
-            );
-            $extra['afilapto_id'] = $afilapto->id;
+            // Solo agregar si este apartamento no está ya vinculado a esta afiliación
+            $yaVinculado = Afilapto::where('afilpagointegral_id', $afiliacion->id)
+                ->where('apartamento_id', $apartamento->id)
+                ->exists();
+            if (!$yaVinculado) {
+                Afilapto::create([
+                    'afilpagointegral_id' => $afiliacion->id,
+                    'apartamento_id'      => $apartamento->id,
+                    'edificio_id'         => $apartamento->edificio_id,
+                    'compania_id'         => $compania?->id,
+                    'estatus_afil'        => 'A',
+                    'fecha_afiliacion'    => now()->toDateString(),
+                ]);
+            }
         }
 
-        $datos = array_merge(
-            $request->except(['apartamento_id', '_token', '_method']),
-            $extra
-        );
+        $datos = $request->except(['apartamento_id', '_token', '_method']);
 
         // Si se cambia tipo_operacion a 'D' en banco directo (no Mercantil), forzar estatus 'I'
         $afiliacion->refresh(); // asegura banco cargado
@@ -1170,8 +1174,26 @@ class PagoIntegralController extends Controller
 
         $afiliacion->update($data);
 
+        Afilapto::where('afilpagointegral_id', $afiliacion->id)->update(['estatus_afil' => 'D']);
+
         return redirect()->route('financiero.pago-integral.afiliaciones')
             ->with('success', 'Afiliado desafiliado correctamente.' . ($afiliacion->esMercantil() ? ' Recuerde generar el archivo Mdesdomi para Mercantil.' : ''));
+    }
+
+    public function reactivar(Afilpagointegral $afiliacion)
+    {
+        $afiliacion->update([
+            'estatus'                   => 'A',
+            'tipo_operacion'            => 'A',
+            'mercantil_estatus_proceso' => null,
+            'observaciones'             => ($afiliacion->observaciones ? $afiliacion->observaciones . ' | ' : '')
+                                           . 'Reactivado por ' . auth()->user()->name . ' el ' . now()->format('d/m/Y H:i'),
+        ]);
+
+        Afilapto::where('afilpagointegral_id', $afiliacion->id)->update(['estatus_afil' => 'A']);
+
+        return redirect()->route('financiero.pago-integral.afiliaciones')
+            ->with('success', 'Afiliacion reactivada correctamente.');
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -1199,7 +1221,7 @@ class PagoIntegralController extends Controller
         }
 
         // Traer afiliaciones Mercantil pendientes del tipo indicado
-        $query = Afilpagointegral::with(['afilapto.apartamento', 'afilapto.edificio', 'banco'])
+        $query = Afilpagointegral::with(['afilaptos.apartamento', 'afilaptos.edificio', 'banco'])
             ->where('banco_id', $bancoMerc->id)
             ->where('tipo_operacion', $tipo);
 
@@ -1250,7 +1272,7 @@ class PagoIntegralController extends Controller
             $cedFull    = $letra . str_pad($afil->cedula_rif ?? '', 10, '0', STR_PAD_LEFT);
             $telefono   = str_pad(preg_replace('/\D/', '', $afil->celular ?? $afil->telefono ?? ''), 11, '0', STR_PAD_LEFT);
             $email      = str_pad($afil->email ?? '', 40);
-            $numApto    = $afil->afilapto?->apartamento?->num_apto ?? '';
+            $numApto    = $afil->afilaptos->first()?->apartamento?->num_apto ?? '';
             $codSuc     = str_pad($afil->cod_sucursal ?? '0000', 4, '0', STR_PAD_LEFT);
 
             // Formato basado en Mdomi267.txt línea "2A":

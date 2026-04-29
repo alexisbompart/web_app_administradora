@@ -6,13 +6,13 @@ use App\Models\Catalogo\Estado;
 use App\Models\Financiero\Banco;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Afilpagointegral extends Model
 {
     protected $table = 'afilpagointegral';
 
     protected $fillable = [
-        'afilapto_id',
         'fecha',
         'letra',
         'cedula_rif',
@@ -51,13 +51,38 @@ class Afilpagointegral extends Model
     ];
 
     protected $casts = [
-        'fecha'                   => 'date',
-        'fecha_estatus'           => 'date',
-        'mercantil_fecha_envio'   => 'date',
+        'fecha'                     => 'date',
+        'fecha_estatus'             => 'date',
+        'mercantil_fecha_envio'     => 'date',
         'mercantil_fecha_respuesta' => 'date',
     ];
 
+    // ── Relaciones ──
+
+    /** Un afiliado puede tener múltiples afilapto (apartamentos afiliados) */
+    public function afilaptos(): HasMany
+    {
+        return $this->hasMany(Afilapto::class);
+    }
+
+    /** Primer afilapto activo — compatibilidad con código legado que usa ->afilapto */
+    public function afilapto(): HasMany
+    {
+        return $this->hasMany(Afilapto::class);
+    }
+
+    public function banco(): BelongsTo
+    {
+        return $this->belongsTo(Banco::class);
+    }
+
+    public function estado(): BelongsTo
+    {
+        return $this->belongsTo(Estado::class);
+    }
+
     // ── Helpers ──
+
     public function esMercantil(): bool
     {
         return $this->banco?->iniciales === 'BM';
@@ -83,18 +108,9 @@ class Afilpagointegral extends Model
         };
     }
 
-    public function afilapto(): BelongsTo
+    /** Primer afilapto con apartamento vinculado (para contextos que necesitan un único inmueble) */
+    public function primerAfilapto(): ?Afilapto
     {
-        return $this->belongsTo(Afilapto::class);
-    }
-
-    public function banco(): BelongsTo
-    {
-        return $this->belongsTo(Banco::class);
-    }
-
-    public function estado(): BelongsTo
-    {
-        return $this->belongsTo(Estado::class);
+        return $this->afilaptos()->whereNotNull('apartamento_id')->first();
     }
 }

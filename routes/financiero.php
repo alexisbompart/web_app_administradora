@@ -121,6 +121,7 @@ Route::prefix('pago-integral')->name('pago-integral.')->group(function () {
     Route::get('/afiliaciones/{afiliacion}/editar', [PagoIntegralController::class, 'editAfiliacion'])->name('afiliaciones.edit');
     Route::put('/afiliaciones/{afiliacion}', [PagoIntegralController::class, 'updateAfiliacion'])->name('afiliaciones.update');
     Route::patch('/afiliaciones/{afiliacion}/desafiliar', [PagoIntegralController::class, 'desafiliar'])->name('afiliaciones.desafiliar');
+    Route::patch('/afiliaciones/{afiliacion}/reactivar', [PagoIntegralController::class, 'reactivar'])->name('afiliaciones.reactivar');
     // Proceso Mercantil dos pasos
     Route::post('/afiliaciones/mercantil/generar-archivo', [PagoIntegralController::class, 'generarArchivoMercantilAfiliacion'])->name('afiliaciones.mercantil.generar');
     Route::delete('/afiliaciones/mercantil/anular-archivo', [PagoIntegralController::class, 'anularArchivoMercantilAfiliacion'])->name('afiliaciones.mercantil.anular');

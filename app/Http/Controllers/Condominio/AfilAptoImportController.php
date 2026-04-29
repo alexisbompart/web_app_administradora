@@ -34,10 +34,14 @@ class AfilAptoImportController extends Controller
             ->mapWithKeys(fn($a) => [$a->edificio_id . '_' . $a->num_apto => $a->id])
             ->toArray();
 
+        // Cargar mapa legacy afilapto_id → afilpagointegral_id generado al importar afilpagointegral
+        $mapPath = storage_path('app/import_afilapto_legacy_map.json');
+        $legacyMap = file_exists($mapPath) ? (json_decode(file_get_contents($mapPath), true) ?? []) : [];
+
         $handle = fopen($filePath, 'r');
         $previewRows = [];
-        $omitidos = []; // registros rechazados con su razón
-        $errors = [];   // errores de formato/parseo
+        $omitidos = [];
+        $errors = [];
         $lineNumber = 0;
         $validCount = 0;
 
@@ -74,7 +78,6 @@ class AfilAptoImportController extends Controller
             }
 
             // --- VALIDAR EDIFICIO: obligatorio ---
-            $edificioId = null;
             if (!$codEdif) {
                 if (count($omitidos) < 500) {
                     $omitidos[] = ['line' => $lineNumber, 'cod_pint' => $codPint, 'cod_edif' => '--', 'num_apto' => $numApto, 'reason' => 'COD_EDIF vacío en el archivo'];
@@ -90,7 +93,6 @@ class AfilAptoImportController extends Controller
             $edificioId = $edificios[$codEdif];
 
             // --- VALIDAR APARTAMENTO: obligatorio ---
-            $apartamentoId = null;
             if (!$numApto) {
                 if (count($omitidos) < 500) {
                     $omitidos[] = ['line' => $lineNumber, 'cod_pint' => $codPint, 'cod_edif' => $codEdif, 'num_apto' => '--', 'reason' => 'NUM_APTO vacío en el archivo'];
@@ -108,15 +110,18 @@ class AfilAptoImportController extends Controller
             $companiaId      = ($codComp && isset($companias[$codComp])) ? $companias[$codComp] : null;
             $fechaAfiliacion = $this->fastParseDateTime($fechaAfil);
 
+            // Vincular al afilpagointegral usando el mapa legacy (legacyId es el id del afiliado en sistema viejo)
+            $afilpagointegralId = ($estatusAfil === 'A' && isset($legacyMap[(int)$legacyId])) ? $legacyMap[(int)$legacyId] : null;
+
             $mapped = [
-                'id'              => (int) $legacyId,
-                'cod_pint'        => $codPint,
-                'apartamento_id'  => $apartamentoId,
-                'edificio_id'     => $edificioId,
-                'compania_id'     => $companiaId,
-                'estatus_afil'    => $estatusAfil,
-                'fecha_afiliacion' => $fechaAfiliacion,
-                'observaciones'   => $obs,
+                'afilpagointegral_id' => $afilpagointegralId,
+                'cod_pint'            => $codPint,
+                'apartamento_id'      => $apartamentoId,
+                'edificio_id'         => $edificioId,
+                'compania_id'         => $companiaId,
+                'estatus_afil'        => $estatusAfil,
+                'fecha_afiliacion'    => $fechaAfiliacion,
+                'observaciones'       => $obs,
             ];
 
             fwrite($tempHandle, json_encode($mapped, JSON_UNESCAPED_UNICODE) . "\n");
@@ -141,7 +146,6 @@ class AfilAptoImportController extends Controller
         fclose($handle);
         fclose($tempHandle);
 
-        // Agrupar omitidos por razón para el resumen
         $omitidosPorRazon = collect($omitidos)
             ->groupBy('reason')
             ->map(fn($g) => $g->count())
@@ -151,11 +155,11 @@ class AfilAptoImportController extends Controller
         $totalActual = Afilapto::count();
 
         $summary = [
-            'total_archivo'    => $validCount + count($omitidos) + count($errors),
-            'validas'          => $validCount,
-            'omitidos'         => count($omitidos),
-            'errores'          => count($errors),
-            'total_actual_bd'  => $totalActual,
+            'total_archivo'      => $validCount + count($omitidos) + count($errors),
+            'validas'            => $validCount,
+            'omitidos'           => count($omitidos),
+            'errores'            => count($errors),
+            'total_actual_bd'    => $totalActual,
             'omitidos_por_razon' => $omitidosPorRazon,
         ];
 
@@ -174,12 +178,10 @@ class AfilAptoImportController extends Controller
 
         $results = ['inserted' => 0, 'updated' => 0, 'errors' => []];
 
-        // Sin TRUNCATE — upsert por id legacy para no borrar registros existentes
         $handle = fopen($tempPath, 'r');
         $batch = [];
-        $batchSize = 1000;
+        $batchSize = 500;
         $now = now()->toDateTimeString();
-        $columns = ['id', 'cod_pint', 'apartamento_id', 'edificio_id', 'compania_id', 'estatus_afil', 'fecha_afiliacion', 'observaciones', 'created_at', 'updated_at'];
 
         DB::beginTransaction();
         try {
@@ -192,13 +194,7 @@ class AfilAptoImportController extends Controller
 
                 $data['created_at'] = $now;
                 $data['updated_at'] = $now;
-
-                // Normalizar: solo columnas validas, mantener nulls
-                $normalized = [];
-                foreach ($columns as $col) {
-                    $normalized[$col] = $data[$col] ?? null;
-                }
-                $batch[] = $normalized;
+                $batch[] = $data;
 
                 if (count($batch) >= $batchSize) {
                     $this->insertBatch($batch, $results);
@@ -220,15 +216,6 @@ class AfilAptoImportController extends Controller
         }
 
         fclose($handle);
-
-        // Fix PostgreSQL sequence
-        try {
-            $maxId = DB::table('afilapto')->max('id') ?? 0;
-            DB::statement("SELECT setval(pg_get_serial_sequence('afilapto', 'id'), GREATEST(?, 1), true)", [$maxId]);
-        } catch (\Exception $e) {
-            // Non-critical
-        }
-
         @unlink($tempPath);
         return view('condominio.afilapto-importar', ['results' => $results]);
     }
@@ -237,32 +224,41 @@ class AfilAptoImportController extends Controller
     {
         if (empty($batch)) return;
 
-        $existingIds = DB::table('afilapto')
-            ->whereIn('id', array_column($batch, 'id'))
-            ->pluck('id')
-            ->flip()
+        // La clave única real es apartamento_id (un apto solo puede tener un registro afilapto)
+        $apartamentoIds = array_column($batch, 'apartamento_id');
+        $existing = DB::table('afilapto')
+            ->whereIn('apartamento_id', $apartamentoIds)
+            ->pluck('id', 'apartamento_id')
             ->toArray();
 
         foreach ($batch as $row) {
+            $aptoId = $row['apartamento_id'];
             try {
                 DB::statement('SAVEPOINT sp_row');
-                $isNew = !isset($existingIds[$row['id']]);
-                DB::table('afilapto')->upsert(
-                    [$row],
-                    ['id'],
-                    ['cod_pint', 'apartamento_id', 'edificio_id', 'compania_id', 'estatus_afil', 'fecha_afiliacion', 'observaciones', 'updated_at']
-                );
-                DB::statement('RELEASE SAVEPOINT sp_row');
-                if ($isNew) {
-                    $results['inserted']++;
-                } else {
+                if (isset($existing[$aptoId])) {
+                    // Actualizar registro existente
+                    DB::table('afilapto')->where('apartamento_id', $aptoId)->update([
+                        'afilpagointegral_id' => $row['afilpagointegral_id'],
+                        'cod_pint'            => $row['cod_pint'],
+                        'compania_id'         => $row['compania_id'],
+                        'estatus_afil'        => $row['estatus_afil'],
+                        'fecha_afiliacion'    => $row['fecha_afiliacion'],
+                        'observaciones'       => $row['observaciones'],
+                        'updated_at'          => $row['updated_at'],
+                    ]);
                     $results['updated']++;
+                } else {
+                    // Insertar nuevo
+                    DB::table('afilapto')->insert($row);
+                    $existing[$aptoId] = true;
+                    $results['inserted']++;
                 }
+                DB::statement('RELEASE SAVEPOINT sp_row');
             } catch (\Exception $e) {
                 DB::statement('ROLLBACK TO SAVEPOINT sp_row');
                 if (count($results['errors']) < 50) {
                     $results['errors'][] = [
-                        'info'   => ($row['cod_pint'] ?? '') . '/' . ($row['estatus_afil'] ?? ''),
+                        'info'   => ($row['cod_pint'] ?? '') . ' apto_id=' . $aptoId,
                         'reason' => $e->getMessage(),
                     ];
                 }

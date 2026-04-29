@@ -4,13 +4,13 @@ namespace App\Models\Condominio;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Afilapto extends Model
 {
     protected $table = 'afilapto';
 
     protected $fillable = [
+        'afilpagointegral_id',
         'apartamento_id',
         'edificio_id',
         'compania_id',
@@ -23,6 +23,11 @@ class Afilapto extends Model
     protected $casts = [
         'fecha_afiliacion' => 'date',
     ];
+
+    public function afilpagointegral(): BelongsTo
+    {
+        return $this->belongsTo(Afilpagointegral::class);
+    }
 
     public function apartamento(): BelongsTo
     {
@@ -37,10 +42,5 @@ class Afilapto extends Model
     public function compania(): BelongsTo
     {
         return $this->belongsTo(Compania::class);
-    }
-
-    public function afilpagointegral(): HasMany
-    {
-        return $this->hasMany(Afilpagointegral::class);
     }
 }
