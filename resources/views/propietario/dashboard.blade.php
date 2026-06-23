@@ -67,7 +67,11 @@
             </div>
             <p class="text-xs text-slate_custom-400 mt-1">
                 @if($pagosRecientes->isNotEmpty())
-                    {{ $pagosRecientes->first()->pago?->fecha_pago ? \Carbon\Carbon::parse($pagosRecientes->first()->pago->fecha_pago)->format('d/m/Y') : '--' }}
+                    @php
+                        $ultimoPago = $pagosRecientes->first();
+                        $fechaUltimo = $ultimoPago->pago?->fecha_pago ?? $ultimoPago->fecha_pag;
+                    @endphp
+                    {{ $fechaUltimo ? \Carbon\Carbon::parse($fechaUltimo)->format('d/m/Y') : '--' }}
                 @else
                     Sin pagos registrados
                 @endif
@@ -162,8 +166,9 @@
                     </thead>
                     <tbody>
                         @forelse($pagosRecientes as $pago)
+                            @php $fechaPago = $pago->pago?->fecha_pago ?? $pago->fecha_pag; @endphp
                             <tr>
-                                <td>{{ $pago->pago?->fecha_pago ? \Carbon\Carbon::parse($pago->pago->fecha_pago)->format('d/m/Y') : '--' }}</td>
+                                <td>{{ $fechaPago ? \Carbon\Carbon::parse($fechaPago)->format('d/m/Y') : '--' }}</td>
                                 <td class="font-medium">
                                     {{ $pago->apartamento->edificio->nombre }} - {{ $pago->apartamento->num_apto }}
                                 </td>

@@ -42,6 +42,44 @@ class MiCondominioController extends Controller
             ->get();
     }
 
+    // Retorna un map apartamento_id => compania_id del edificio
+    private function getAptoCompaniaMap(iterable $apartamentos): array
+    {
+        $map = [];
+        foreach ($apartamentos as $apto) {
+            if ($apto->edificio) {
+                $map[$apto->id] = $apto->edificio->compania_id;
+            }
+        }
+        return $map;
+    }
+
+    // Excluye deudas de una compania diferente cuando el mismo periodo/apto ya tiene deuda
+    // de la compania del edificio (evita duplicados por migración de administradora).
+    private function filtrarDeudaCompania($query, array $aptoCompaniaMap)
+    {
+        return $query->where(function ($q) use ($aptoCompaniaMap) {
+            foreach ($aptoCompaniaMap as $aptoId => $companiaId) {
+                $q->orWhere(function ($q2) use ($aptoId, $companiaId) {
+                    $q2->where('apartamento_id', $aptoId)
+                       ->where(function ($q3) use ($aptoId, $companiaId) {
+                           // Mostrar si es de la compania del edificio,
+                           // o si no existe una versión de esa compania para el mismo periodo
+                           $q3->where('compania_id', $companiaId)
+                              ->orWhereNotExists(function ($sub) use ($aptoId, $companiaId) {
+                                  $sub->from('cond_deudas_apto as d2')
+                                      ->whereColumn('d2.periodo', 'cond_deudas_apto.periodo')
+                                      ->where('d2.apartamento_id', $aptoId)
+                                      ->where('d2.compania_id', $companiaId)
+                                      ->where('d2.estatus', 'P')
+                                      ->where('d2.saldo', '>', 0);
+                              });
+                       });
+                });
+            }
+        });
+    }
+
     public function dashboard()
     {
         $propietario = $this->getPropietario();
@@ -52,17 +90,35 @@ class MiCondominioController extends Controller
 
         $apartamentos = $this->getApartamentos($propietario);
         $apartamentoIds = $apartamentos->pluck('id');
+        $aptoCompaniaMap = $this->getAptoCompaniaMap($apartamentos);
 
-        $deudasPendientes = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
-            ->pendientes()
-            ->get();
+        $deudasPendientes = $this->filtrarDeudaCompania(
+            CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)->pendientes()
+                ->whereExists(function ($q) {
+                    $q->select(DB::raw(1))
+                      ->from('cond_movs_fact_apto')
+                      ->whereColumn('cond_movs_fact_apto.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_movs_fact_apto.periodo', 'cond_deudas_apto.periodo');
+                })
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')
+                      ->from('cond_pago_aptos')
+                      ->whereColumn('cond_pago_aptos.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_pago_aptos.periodo', 'cond_deudas_apto.periodo')
+                      ->groupBy('cond_pago_aptos.apartamento_id', 'cond_pago_aptos.periodo')
+                      ->havingRaw('SUM(cond_pago_aptos.monto_aplicado) >= cond_deudas_apto.saldo');
+                })
+                ->with('apartamento.edificio'),
+            $aptoCompaniaMap
+        )->get();
 
         $totalDeuda = $deudasPendientes->sum('saldo');
         $totalMeses = $deudasPendientes->count();
 
         $pagosRecientes = CondPagoApto::whereIn('apartamento_id', $apartamentoIds)
             ->with('pago')
-            ->latest()
+            ->orderByRaw('COALESCE(fecha_pag, created_at) DESC')
+            ->orderByDesc('id')
             ->take(5)
             ->get();
 
@@ -86,10 +142,27 @@ class MiCondominioController extends Controller
 
         $apartamentos = $this->getApartamentos($propietario);
         $apartamentoIds = $apartamentos->pluck('id');
+        $aptoCompaniaMap = $this->getAptoCompaniaMap($apartamentos);
 
-        $query = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
-            ->pendientes()
-            ->with(['apartamento.edificio']);
+        $query = $this->filtrarDeudaCompania(
+            CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)->pendientes()
+                ->whereExists(function ($q) {
+                    $q->select(DB::raw(1))
+                      ->from('cond_movs_fact_apto')
+                      ->whereColumn('cond_movs_fact_apto.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_movs_fact_apto.periodo', 'cond_deudas_apto.periodo');
+                })
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')
+                      ->from('cond_pago_aptos')
+                      ->whereColumn('cond_pago_aptos.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_pago_aptos.periodo', 'cond_deudas_apto.periodo')
+                      ->groupBy('cond_pago_aptos.apartamento_id', 'cond_pago_aptos.periodo')
+                      ->havingRaw('SUM(cond_pago_aptos.monto_aplicado) >= cond_deudas_apto.saldo');
+                })
+                ->with(['apartamento.edificio']),
+            $aptoCompaniaMap
+        );
 
         if ($request->filled('apartamento')) {
             $query->where('apartamento_id', $request->apartamento);
@@ -111,8 +184,8 @@ class MiCondominioController extends Controller
         $query = CondPagoApto::whereIn('apartamento_id', $apartamentoIds)
             ->with(['pago.banco', 'apartamento.edificio']);
 
-        if ($request->filled('apartamento')) {
-            $query->where('apartamento_id', $request->apartamento);
+        if ($request->filled('apartamento_id')) {
+            $query->where('apartamento_id', $request->apartamento_id);
         }
 
         $pagos = $query->latest()->paginate(15)->withQueryString();
@@ -168,11 +241,13 @@ class MiCondominioController extends Controller
             $totalAptosEdificio = Apartamento::where('edificio_id', $edificio->id)->count();
 
             $deudasEdificio = CondDeudaApto::where('edificio_id', $edificio->id)
+                ->where('compania_id', $edificio->compania_id)
                 ->pendientes()
                 ->count();
 
             $morosidadEdificio = $totalAptosEdificio > 0
                 ? round(CondDeudaApto::where('edificio_id', $edificio->id)
+                    ->where('compania_id', $edificio->compania_id)
                     ->pendientes()
                     ->distinct('apartamento_id')
                     ->count('apartamento_id') / $totalAptosEdificio * 100, 1)
@@ -219,12 +294,27 @@ class MiCondominioController extends Controller
 
         $apartamentos = $this->getApartamentos($propietario);
         $apartamentoIds = $apartamentos->pluck('id');
+        $aptoCompaniaMap = $this->getAptoCompaniaMap($apartamentos);
 
-        $deudasPendientes = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
-            ->pendientes()
-            ->with(['apartamento.edificio'])
-            ->orderBy('periodo')
-            ->get();
+        $deudasPendientes = $this->filtrarDeudaCompania(
+            CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)->pendientes()
+                ->whereExists(function ($q) {
+                    $q->select(DB::raw(1))
+                      ->from('cond_movs_fact_apto')
+                      ->whereColumn('cond_movs_fact_apto.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_movs_fact_apto.periodo', 'cond_deudas_apto.periodo');
+                })
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')
+                      ->from('cond_pago_aptos')
+                      ->whereColumn('cond_pago_aptos.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_pago_aptos.periodo', 'cond_deudas_apto.periodo')
+                      ->groupBy('cond_pago_aptos.apartamento_id', 'cond_pago_aptos.periodo')
+                      ->havingRaw('SUM(cond_pago_aptos.monto_aplicado) >= cond_deudas_apto.saldo');
+                })
+                ->with(['apartamento.edificio'])->orderBy('periodo'),
+            $aptoCompaniaMap
+        )->get();
 
         $bancos = Banco::orderBy('nombre')->get();
 
@@ -254,7 +344,9 @@ class MiCondominioController extends Controller
             'deudas.*'          => 'exists:cond_deudas_apto,id',
         ]);
 
-        $apartamentoIds = $this->getApartamentos($propietario)->pluck('id');
+        $apartamentosObj = $this->getApartamentos($propietario);
+        $apartamentoIds  = $apartamentosObj->pluck('id');
+        $aptoCompaniaMap = $this->getAptoCompaniaMap($apartamentosObj);
 
         // Bloquear si ya existe un pago pendiente de aprobación para estos apartamentos
         $tienePagoPendiente = CondPago::where('estatus', 'P')
@@ -265,23 +357,35 @@ class MiCondominioController extends Controller
             return redirect()->back()->with('error', 'Ya tiene un pago registrado pendiente de aprobacion. Debe esperar a que el administrador lo procese antes de registrar otro pago.');
         }
 
-        $deudas = CondDeudaApto::whereIn('id', $validated['deudas'])
-            ->whereIn('apartamento_id', $apartamentoIds)
-            ->pendientes()
-            ->with('apartamento.edificio')
-            ->orderBy('periodo')
-            ->get();
+        $deudas = $this->filtrarDeudaCompania(
+            CondDeudaApto::whereIn('id', $validated['deudas'])->whereIn('apartamento_id', $apartamentoIds)->pendientes()->with('apartamento.edificio')->orderBy('periodo'),
+            $aptoCompaniaMap
+        )->get();
 
         if ($deudas->isEmpty()) {
             return redirect()->back()->with('error', 'No se encontraron deudas validas para pagar.');
         }
 
         // Validate consecutive order from oldest
-        $allDeudas = CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)
-            ->pendientes()
-            ->orderBy('periodo')
-            ->pluck('id')
-            ->toArray();
+        $allDeudas = $this->filtrarDeudaCompania(
+            CondDeudaApto::whereIn('apartamento_id', $apartamentoIds)->pendientes()
+                ->whereExists(function ($q) {
+                    $q->select(DB::raw(1))
+                      ->from('cond_movs_fact_apto')
+                      ->whereColumn('cond_movs_fact_apto.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_movs_fact_apto.periodo', 'cond_deudas_apto.periodo');
+                })
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')
+                      ->from('cond_pago_aptos')
+                      ->whereColumn('cond_pago_aptos.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_pago_aptos.periodo', 'cond_deudas_apto.periodo')
+                      ->groupBy('cond_pago_aptos.apartamento_id', 'cond_pago_aptos.periodo')
+                      ->havingRaw('SUM(cond_pago_aptos.monto_aplicado) >= cond_deudas_apto.saldo');
+                })
+                ->orderBy('periodo'),
+            $aptoCompaniaMap
+        )->pluck('id')->toArray();
 
         $selectedIds = $deudas->pluck('id')->toArray();
         $selecting = true;
@@ -386,7 +490,11 @@ class MiCondominioController extends Controller
         $apartamentos = $this->getApartamentos($propietario);
         $edificioIds = $apartamentos->pluck('edificio_id')->unique();
 
+        $aptoCompaniaMap = $this->getAptoCompaniaMap($apartamentos);
+        $companiaIds = array_unique(array_values($aptoCompaniaMap));
+
         $recibos = CondMovFactEdif::whereIn('edificio_id', $edificioIds)
+            ->whereIn('compania_id', $companiaIds)
             ->with('edificio')
             ->latest()
             ->paginate(15);
@@ -465,7 +573,11 @@ class MiCondominioController extends Controller
         $apartamentos = $this->getApartamentos($propietario);
         $apartamentoIds = $apartamentos->pluck('id');
 
+        $aptoCompaniaMap = $this->getAptoCompaniaMap($apartamentos);
+        $companiaIds = array_unique(array_values($aptoCompaniaMap));
+
         $recibos = CondMovFactApto::whereIn('apartamento_id', $apartamentoIds)
+            ->whereIn('compania_id', $companiaIds)
             ->with(['edificio', 'apartamento'])
             ->latest()
             ->paginate(15);
@@ -511,10 +623,28 @@ class MiCondominioController extends Controller
         $deudas = collect();
         if ($afiliado && $afiliado->afilaptos->isNotEmpty()) {
             $primerApto = $afiliado->afilaptos->first();
-            $deudas = CondDeudaApto::where('apartamento_id', $primerApto->apartamento_id)
-                ->pendientes()
-                ->orderBy('periodo')
-                ->get();
+            $apto = $primerApto->apartamento;
+            $companiaId = $apto?->edificio?->compania_id;
+            $deudaQuery = CondDeudaApto::where('apartamento_id', $primerApto->apartamento_id)->pendientes()
+                ->whereExists(function ($q) {
+                    $q->select(DB::raw(1))
+                      ->from('cond_movs_fact_apto')
+                      ->whereColumn('cond_movs_fact_apto.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_movs_fact_apto.periodo', 'cond_deudas_apto.periodo');
+                })
+                ->whereNotExists(function ($q) {
+                    $q->selectRaw('1')
+                      ->from('cond_pago_aptos')
+                      ->whereColumn('cond_pago_aptos.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                      ->whereColumn('cond_pago_aptos.periodo', 'cond_deudas_apto.periodo')
+                      ->groupBy('cond_pago_aptos.apartamento_id', 'cond_pago_aptos.periodo')
+                      ->havingRaw('SUM(cond_pago_aptos.monto_aplicado) >= cond_deudas_apto.saldo');
+                })
+                ->orderBy('periodo');
+            if ($companiaId) {
+                $deudaQuery->where('compania_id', $companiaId);
+            }
+            $deudas = $deudaQuery->get();
         }
 
         // Pagos integrales previos del propietario
@@ -558,12 +688,21 @@ class MiCondominioController extends Controller
         }
 
         $apartamentoId = $primerApto->apartamento_id;
+        $companiaIdPInt = $primerApto->apartamento?->edificio?->compania_id;
 
         // Get all pending debts for validation
-        $allDeudas = CondDeudaApto::where('apartamento_id', $apartamentoId)
-            ->pendientes()
-            ->orderBy('periodo')
-            ->get();
+        $allDeudasQuery = CondDeudaApto::where('apartamento_id', $apartamentoId)->pendientes()
+            ->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                  ->from('cond_movs_fact_apto')
+                  ->whereColumn('cond_movs_fact_apto.apartamento_id', 'cond_deudas_apto.apartamento_id')
+                  ->whereColumn('cond_movs_fact_apto.periodo', 'cond_deudas_apto.periodo');
+            })
+            ->orderBy('periodo');
+        if ($companiaIdPInt) {
+            $allDeudasQuery->where('compania_id', $companiaIdPInt);
+        }
+        $allDeudas = $allDeudasQuery->get();
 
         $selectedIds = collect($request->deudas)->map(fn($id) => (int) $id);
 
@@ -577,11 +716,11 @@ class MiCondominioController extends Controller
             }
         }
 
-        $deudas = CondDeudaApto::whereIn('id', $selectedIds->toArray())
-            ->where('apartamento_id', $apartamentoId)
-            ->pendientes()
-            ->orderBy('periodo')
-            ->get();
+        $deudasQuery = CondDeudaApto::whereIn('id', $selectedIds->toArray())->where('apartamento_id', $apartamentoId)->pendientes()->orderBy('periodo');
+        if ($companiaIdPInt) {
+            $deudasQuery->where('compania_id', $companiaIdPInt);
+        }
+        $deudas = $deudasQuery->get();
 
         if ($deudas->isEmpty()) {
             return back()->with('error', 'No se encontraron deudas validas.');

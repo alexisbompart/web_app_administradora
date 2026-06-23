@@ -61,11 +61,11 @@
                     </div>
                     <div>
                         <span class="text-xs text-slate_custom-400 block">Edificio</span>
-                        <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilapto?->apartamento?->edificio?->nombre ?? 'N/A' }}</span>
+                        <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilaptos->first()?->apartamento?->edificio?->nombre ?? 'N/A' }}</span>
                     </div>
                     <div>
                         <span class="text-xs text-slate_custom-400 block">Apartamento</span>
-                        <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilapto?->apartamento?->num_apto ?? 'N/A' }}</span>
+                        <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilaptos->first()?->apartamento?->num_apto ?? 'N/A' }}</span>
                     </div>
                 </div>
             </div>
@@ -100,11 +100,11 @@
                     </div>
                     <div>
                         <span class="text-xs text-slate_custom-400 block">Edificio</span>
-                        <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilapto?->apartamento?->edificio?->nombre ?? 'N/A' }}</span>
+                        <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilaptos->first()?->apartamento?->edificio?->nombre ?? 'N/A' }}</span>
                     </div>
                     <div>
                         <span class="text-xs text-slate_custom-400 block">Apartamento</span>
-                        <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilapto?->apartamento?->num_apto ?? 'N/A' }}</span>
+                        <span class="text-sm font-semibold text-navy-800">{{ $afiliado->afilaptos->first()?->apartamento?->num_apto ?? 'N/A' }}</span>
                     </div>
                 </div>
             </div>
@@ -150,7 +150,7 @@
                                                class="check-deuda rounded border-slate_custom-300 text-burgundy-800 focus:ring-burgundy-800">
                                     </td>
                                     <td class="font-medium text-navy-800">{{ $deuda->periodo }}</td>
-                                    <td>{{ $afiliado->afilapto?->apartamento?->edificio?->nombre }} - {{ $afiliado->afilapto?->apartamento?->num_apto }}</td>
+                                    <td>{{ $afiliado->afilaptos->first()?->apartamento?->edificio?->nombre }} - {{ $afiliado->afilaptos->first()?->apartamento?->num_apto }}</td>
                                     <td class="text-right">{{ number_format($deuda->monto_original ?? 0, 2, ',', '.') }} Bs</td>
                                     <td class="text-right font-semibold text-burgundy-800">{{ number_format($deuda->saldo, 2, ',', '.') }} Bs</td>
                                 </tr>

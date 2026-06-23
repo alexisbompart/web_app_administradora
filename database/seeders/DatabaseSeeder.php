@@ -33,7 +33,17 @@ class DatabaseSeeder extends Seeder
             TrabajadorSeeder::class,
             ProveedorSeeder::class,
 
-            // 6. Datos de demostración
+            // 6. Afiliaciones Pago Integral
+            AfilpagointegralSeeder::class,
+
+            // 7. Recibos (fact_apto, fact_edif, prefact)
+            RecibosSeeder::class,
+
+            // 8. Deudas y pagos del apartamento demo para cliente@test.com
+            DeudasDemoSeeder::class,
+            PagoAptosDemoSeeder::class,
+
+            // 9. Datos de demostración
             DatosDemoSeeder::class,
 
             // 7. Contenido pagina Welcome

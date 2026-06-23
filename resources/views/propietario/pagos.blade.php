@@ -62,40 +62,42 @@
                     </thead>
                     <tbody>
                         @forelse($pagos as $pago)
+                            @php
+                                $fechaPago    = $pago->pago?->fecha_pago ?? $pago->fecha_pag;
+                                $nroRecibo    = $pago->pago?->numero_recibo ?? $pago->id_pago_legacy ?? '--';
+                                $formaPago    = $pago->pago?->forma_pago ?? ($pago->id_pago_legacy ? 'Legado' : '--');
+                                $referencia   = $pago->pago?->numero_referencia ?? '--';
+                                $estatusPago  = $pago->pago?->estatus ?? 'A';
+                            @endphp
                             <tr>
-                                <td>{{ $pago->pago?->fecha_pago ? \Carbon\Carbon::parse($pago->pago->fecha_pago)->format('d/m/Y') : '--' }}</td>
-                                <td class="font-medium text-navy-800">{{ $pago->pago?->numero_recibo ?? '--' }}</td>
-                                <td>
-                                    {{ $pago->apartamento->edificio->nombre }} - {{ $pago->apartamento->num_apto }}
-                                </td>
+                                <td>{{ $fechaPago ? \Carbon\Carbon::parse($fechaPago)->format('d/m/Y') : '--' }}</td>
+                                <td class="font-medium text-navy-800">{{ $nroRecibo }}</td>
+                                <td>{{ $pago->apartamento?->edificio?->nombre ?? $pago->cod_edif_legacy }} - {{ $pago->apartamento?->num_apto ?? $pago->num_apto_legacy }}</td>
                                 <td>{{ $pago->periodo }}</td>
-                                <td>
-                                    <span class="badge-info">{{ $pago->pago?->forma_pago ?? '--' }}</span>
-                                </td>
-                                <td class="text-sm text-slate_custom-500">{{ $pago->pago->numero_referencia ?? '--' }}</td>
+                                <td><span class="badge-info">{{ $formaPago }}</span></td>
+                                <td class="text-sm text-slate_custom-500">{{ $referencia }}</td>
                                 <td class="font-semibold text-green-600">
-                                    {{ number_format($pago->monto_aplicado, 2, ',', '.') }} Bs
+                                    {{ number_format($pago->monto_aplicado ?? $pago->monto_pago ?? 0, 2, ',', '.') }} Bs
                                 </td>
                                 <td>
-                                    @php $estatus = $pago->pago->estatus ?? 'P'; @endphp
-                                    @if($estatus === 'A')
+                                    @if($estatusPago === 'A')
                                         <span class="badge-success"><i class="fas fa-check-circle mr-1"></i>Aprobado</span>
-                                    @elseif($estatus === 'R')
+                                    @elseif($estatusPago === 'R')
                                         <span class="badge-danger"><i class="fas fa-times-circle mr-1"></i>Rechazado</span>
-                                    @elseif($estatus === 'N')
+                                    @elseif($estatusPago === 'N')
                                         <span class="badge-warning"><i class="fas fa-ban mr-1"></i>Anulado</span>
                                     @else
                                         <span class="badge-info"><i class="fas fa-clock mr-1"></i>Pendiente</span>
                                     @endif
                                 </td>
                                 <td>
-                                    @if(($pago->pago->estatus ?? 'P') === 'A')
+                                    @if($pago->pago?->estatus === 'A')
                                         <a href="{{ route('mi-condominio.recibo', $pago->id) }}"
                                            class="btn-primary text-xs px-3 py-1.5">
                                             <i class="fas fa-file-pdf mr-1"></i>Ver Recibo
                                         </a>
                                     @else
-                                        <span class="text-xs text-slate_custom-400">No disponible</span>
+                                        <span class="text-xs text-slate_custom-400">—</span>
                                     @endif
                                 </td>
                             </tr>

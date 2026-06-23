@@ -63,17 +63,8 @@ class CondDeudaApto extends Model
         return $this->hasMany(CondPagoApto::class, 'deuda_id');
     }
 
-    /**
-     * Scope: deudas realmente pendientes.
-     * Condicion: serial es N o null, Y fecha_pag es null o 0001-01-01.
-     */
     public function scopePendientes($query)
     {
-        return $query->where(function ($q) {
-                $q->whereNull('serial')->orWhere('serial', 'N');
-            })
-            ->where(function ($q) {
-                $q->whereNull('fecha_pag')->orWhere('fecha_pag', '0001-01-01');
-            });
+        return $query->where('estatus', 'P')->where('saldo', '>', 0);
     }
 }

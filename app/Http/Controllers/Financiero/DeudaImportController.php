@@ -239,9 +239,7 @@ class DeudaImportController extends Controller
 
         // Truncate table
         try {
-            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-            DB::table('cond_deudas_apto')->truncate();
-            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            DB::statement('TRUNCATE TABLE cond_deudas_apto CASCADE;');
         } catch (\Exception $e) {
             @unlink($tempPath);
             return redirect()->route('financiero.deudas.importar')
